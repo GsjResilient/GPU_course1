@@ -8,7 +8,7 @@ import struct
 from tempfile import TemporaryDirectory
 from .diagnostics import CompileError,SourceLoc
 
-VERSION='0.1.0-dev'
+VERSION=(Path(__file__).resolve().parents[1]/'VERSION').read_text().strip()
 PROFILE='ntas1-sim-v1.10-low32-predicated-v1'
 FORMAT='nutcc-artifact-v1'
 UNSUPPORTED=['dynamic loops','device calls','early return','shared/atomic/barrier',

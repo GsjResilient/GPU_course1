@@ -50,6 +50,7 @@ class Builder:
             params.append(p)
         self.program = Program(kernel.name, params, len(params)*8, [])
         self.counter, self.locals, self.initialized = 0, {}, set()
+        self.statement_visits = 0
         self.constant_decls = {n['id']: n for n in walk(kernel.unit.ast)
                                if n.get('kind') == 'VarDecl' and n.get('constexpr')}
         self.loop_values = {}
@@ -197,6 +198,9 @@ class Builder:
         self.error(n,'E_EXPRESSION','unsupported expression: '+kind)
 
     def statement(self,n,guard=None):
+        self.statement_visits += 1
+        if self.statement_visits > 65536:
+            self.error(n,'E_EXPANSION_LIMIT','compile-time expansion exceeds 65536 statement visits')
         kind=n.get('kind')
         if kind in ('CompoundStmt','DeclStmt'):
             for c in n.get('inner',[]): self.statement(c,guard)
@@ -230,9 +234,8 @@ class Builder:
         elif kind == 'ForStmt':
             id_,count,body=loop_contract(n,self.unit,self.constant_decls)
             # An empty loop is side-effect free, so avoid expanding it.
-            if not any(c.get('kind') not in (None,'CompoundStmt','NullStmt','ForStmt','DeclStmt','IntegerLiteral','BinaryOperator','ImplicitCastExpr','DeclRefExpr','UnaryOperator','VarDecl') for c in walk(body)):
-                if all(c.get('kind') in ('CompoundStmt','NullStmt',None) for c in walk(body)):
-                    return
+            if all(c.get('kind') in ('CompoundStmt','NullStmt',None) for c in walk(body)):
+                return
             for index in range(count):
                 self.loop_values[id_]=index
                 self.statement(body,guard)

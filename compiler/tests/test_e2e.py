@@ -73,6 +73,10 @@ class E2ETests(unittest.TestCase):
         self.execute('NT_KERNEL void k(int* out){int s=0;for(int i=0;i<3;++i){for(int j=0;j<4;++j){s+=i*j;}}out[0]=s;}',
                      {'out':bytes(4)},[BufferRef('out')],struct.pack('<i',18))
 
+    def test_constant_unsigned_wraparound(self):
+        self.execute('NT_KERNEL void k(int* out){if(0xffffffffU+1U){out[0]=2;}else{out[0]=1;}if(-1U<1U){out[1]=2;}else{out[1]=1;}}',
+                     {'out':bytes(8)},[BufferRef('out')],struct.pack('<ii',1,1))
+
     def test_loop_local_requires_initialization_each_iteration(self):
         p=self.out/'uninitialized_iteration.cpp'
         p.write_text('NT_KERNEL void k(int* out){for(int i=0;i<2;++i){int v;if(i==0){v=7;}else{out[0]=v;}}}')

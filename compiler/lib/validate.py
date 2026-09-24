@@ -37,6 +37,16 @@ def walk(n):
 
 
 def const_int(n, declarations):
+    value=_const_int(n,declarations)
+    typ=n.get('type',{}).get('qualType','').replace('const ','')
+    if typ=='unsigned int':return value&0xffffffff
+    if typ=='bool':return int(bool(value))
+    if typ=='int' and not -(1<<31)<=value<(1<<31):
+        raise ValueError('signed constant expression overflows')
+    return value
+
+
+def _const_int(n, declarations):
     k = n.get('kind')
     children = n.get('inner', [])
     if k in ('IntegerLiteral','CXXBoolLiteralExpr'):

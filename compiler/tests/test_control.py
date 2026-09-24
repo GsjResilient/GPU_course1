@@ -1,9 +1,20 @@
 import unittest
+import subprocess,sys
+from compiler.tests.support import source_file
 from compiler.tests.test_lower import lower_text
 from compiler.lib.diagnostics import CompileError
 
 
 class ControlTests(unittest.TestCase):
+    def test_nonemitting_expansion_has_budget(self):
+        source='NT_KERNEL void k(){'
+        source+=''.join('for(int i'+str(i)+'=0;i'+str(i)+'<256;++i'+str(i)+'){' for i in range(5))
+        source+='int unused;'+'}'*6
+        with source_file(source) as p:
+            result=subprocess.run([sys.executable,'compiler/nutcc.py',str(p),'--kernel','k','--out',str(p.parent/'out')],capture_output=True,text=True,timeout=5)
+            self.assertEqual(result.returncode,2,result.stderr)
+            self.assertIn('E_EXPANSION_LIMIT',result.stderr)
+
     def test_condition_snapshot(self):
         p = lower_text('NT_KERNEL void k(int* out){int x=0;if(x==0){x=1;}else{x=2;}out[0]=x;}')
         self.assertFalse(any(i.op in ('bra','ssy') for i in p.instructions))
