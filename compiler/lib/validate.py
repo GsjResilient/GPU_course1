@@ -36,6 +36,60 @@ def walk(n):
         yield from walk(c)
 
 
+def const_int(n, declarations):
+    k = n.get('kind')
+    children = n.get('inner', [])
+    if k in ('IntegerLiteral','CXXBoolLiteralExpr'):
+        return int(n['value'])
+    if k in ('ParenExpr','ConstantExpr','ImplicitCastExpr'):
+        return const_int(children[0], declarations)
+    if k == 'DeclRefExpr' and n['referencedDecl']['id'] in declarations:
+        return const_int(declarations[n['referencedDecl']['id']]['inner'][-1], declarations)
+    if k == 'UnaryOperator':
+        v = const_int(children[0], declarations)
+        op = n['opcode']
+        if op == '-': return -v
+        if op == '+': return v
+        if op == '!': return int(not v)
+    if k == 'BinaryOperator':
+        a,b = [const_int(c,declarations) for c in children]
+        op = n['opcode']
+        if op == '+': return a+b
+        if op == '-': return a-b
+        if op == '*': return a*b
+        if op == '<': return int(a<b)
+        if op == '==': return int(a==b)
+    raise ValueError('not a supported integer constant expression')
+
+
+def loop_contract(n, unit, declarations):
+    children=n.get('inner',[])
+    try:
+        init,empty,cond,step,body=children
+        decl,=init['inner']
+        id_=decl['id']
+        def ref(node):
+            while node.get('kind') in ('ImplicitCastExpr','ParenExpr'):
+                node=node['inner'][0]
+            return node.get('referencedDecl',{}).get('id')
+        if (init['kind']!='DeclStmt' or decl['kind']!='VarDecl'
+                or kind_of(decl,unit)!='i32' or const_int(decl['inner'][-1],declarations)!=0
+                or empty.get('kind') or cond.get('opcode')!='<' or ref(cond['inner'][0])!=id_
+                or step.get('opcode')!='++' or step.get('isPostfix') or ref(step['inner'][0])!=id_):
+            raise ValueError('expected for(int k=0;k<C;++k)')
+        count=const_int(cond['inner'][1],declarations)
+        if not 0<=count<=256: raise ValueError('loop count must be 0..256')
+        for child in walk(body):
+            if child.get('kind')=='UnaryOperator' and child.get('opcode') in ('++','--','&') and ref(child['inner'][0])==id_:
+                raise ValueError('loop variable cannot be modified or escape')
+            if (child.get('kind')=='CompoundAssignOperator' or
+                child.get('kind')=='BinaryOperator' and child.get('opcode')=='=') and ref(child['inner'][0])==id_:
+                raise ValueError('loop variable cannot be modified')
+        return id_,count,body
+    except (KeyError,ValueError,IndexError) as e:
+        unit.error(n,'E_LOOP',str(e))
+
+
 def validate_kernel(unit, name):
     functions, builtin_ids = [], set()
     def top(n):
@@ -83,11 +137,16 @@ def validate_kernel(unit, name):
                'MemberExpr', 'IfStmt', 'ForStmt', 'NullStmt', 'ReturnStmt', 'ConstantExpr'}
     local_ids = {p['id'] for p in parameters} | {n['id'] for n in walk(body) if n.get('kind') == 'VarDecl'}
     constants = {n['id'] for n in walk(unit.ast) if n.get('kind') == 'VarDecl' and n.get('constexpr')}
+    constant_decls = {n['id']: n for n in walk(unit.ast) if n.get('kind') == 'VarDecl' and n.get('constexpr')}
     for n in walk(body):
         if not n.get('kind'): continue  # Clang's empty ForStmt condition-variable slot.
         k = n.get('kind')
         if k not in allowed:
             unit.error(n, 'E_SYNTAX', 'unsupported syntax: ' + str(k))
+        if k == 'ForStmt':
+            loop_contract(n,unit,constant_decls)
+        if k == 'IfStmt' and (n.get('hasInit') or n.get('hasVar') or len(n.get('inner',[])) not in (2,3)):
+            unit.error(n,'E_IF','if initializer/condition declarations are unsupported')
         if k == 'VarDecl':
             kind = kind_of(n, unit)
             if kind.startswith('ptr_') or n.get('storageClass'):

@@ -1,7 +1,7 @@
 """Typed, ordered lowering. Mutable locals preserve inactive lane values."""
 from fractions import Fraction
 from .ir import VReg, IRInst, Program
-from .validate import kind_of, walk
+from .validate import kind_of, walk, const_int, loop_contract
 
 OPS = {'+':'add','-':'sub','*':'mul','&':'and','|':'or','^':'xor',
        '<<':'shl','>>':'shr','==':'cmp_eq','!=':'cmp_ne','<':'cmp_lt',
@@ -105,6 +105,19 @@ class Builder:
             self.emit('store', None, (addr,value), guard=guard, node=lhs)
         return value
 
+    def boolean(self, n, guard):
+        val = self.expr(n,guard)
+        # Always snapshot; the source variable may be assigned by either branch.
+        zero = self.constant(0,val.kind,guard,n)
+        return self.emit('cmp_ne','bool',(val,zero),guard=guard,node=n)
+
+    def mask(self,parent,condition,invert,node):
+        if invert:
+            condition=self.emit('xor','bool',(condition,self.constant(1,'bool',node=node)),node=node)
+        if parent is not None:
+            condition=self.emit('and','bool',(parent,condition),node=node)
+        return condition
+
     def expr(self, n, guard=None):
         kind = n['kind']
         children = n.get('inner', [])
@@ -143,7 +156,15 @@ class Builder:
             if op == '=':
                 return self.assign(children[0], self.expr(children[1],guard), guard)
             if op in ('&&','||'):
-                self.error(n, 'E_CONTROL', 'short circuit lowering is not implemented')
+                left=self.boolean(children[0],guard)
+                rhs_mask=self.mask(guard,left,op=='||',n)
+                before=set(self.initialized)
+                right=self.boolean(children[1],rhs_mask)
+                self.initialized=before  # RHS may not execute.
+                rhs_value=self.emit('and','bool',(rhs_mask,right),node=n)
+                if op=='&&': return rhs_value
+                lhs_value=self.mask(guard,left,False,n)
+                return self.emit('or','bool',(lhs_value,rhs_value),node=n)
             if kind == 'CompoundAssignOperator':
                 # C++17 evaluates RHS before LHS, and the LHS address exactly once.
                 right = self.expr(children[1],guard)
@@ -187,8 +208,35 @@ class Builder:
                 self.initialized.add(n['id'])
         elif kind in ('NullStmt','ReturnStmt'):
             return
-        elif kind in ('IfStmt','ForStmt'):
-            self.error(n,'E_CONTROL','control statement lowering is not implemented')
+        elif kind == 'IfStmt':
+            condition,then,*other=n['inner']
+            try:
+                known=bool(const_int(condition,self.constant_decls))
+            except ValueError:
+                known=None
+            if known is not None:
+                if known: self.statement(then,guard)
+                elif other: self.statement(other[0],guard)
+                return
+            saved=self.boolean(condition,guard)
+            then_mask=self.mask(guard,saved,False,n)
+            else_mask=self.mask(guard,saved,True,n)
+            before=set(self.initialized)
+            self.statement(then,then_mask)
+            after_then=set(self.initialized)
+            self.initialized=set(before)
+            if other: self.statement(other[0],else_mask)
+            self.initialized &= after_then
+        elif kind == 'ForStmt':
+            id_,count,body=loop_contract(n,self.unit,self.constant_decls)
+            # An empty loop is side-effect free, so avoid expanding it.
+            if not any(c.get('kind') not in (None,'CompoundStmt','NullStmt','ForStmt','DeclStmt','IntegerLiteral','BinaryOperator','ImplicitCastExpr','DeclRefExpr','UnaryOperator','VarDecl') for c in walk(body)):
+                if all(c.get('kind') in ('CompoundStmt','NullStmt',None) for c in walk(body)):
+                    return
+            for index in range(count):
+                self.loop_values[id_]=index
+                self.statement(body,guard)
+            self.loop_values.pop(id_,None)
         else:
             self.expr(n,guard)
 
