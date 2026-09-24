@@ -66,6 +66,8 @@ NT_KERNEL void bad(double* p) { p[0] = 1.0; }
 
 `.ntbin` 是小端 64 位指令字流，`.ntasm` 是可读清单，`.json` 是最后发布的完整性标志，包含 SHA-256、参数布局及寄存器数。不能把 `.ntbin` 当成上游 `.ntas` 容器。编译失败返回非零；runner 校验 manifest 与机器码版本、长度及哈希。
 
+同一个输出前缀和运行目录按顺序使用；并发任务使用不同目录。本版不承诺共享目录的并发写入安全。
+
 Profile：`ntas1-sim-v1.10-low32-predicated-v1`。每个参数从 8 字节边界开始，标量占 4 字节，指针槽占 8 字节。实际缓冲区限低 4 GiB；runner 校验完整分配区间，随后加载低 32 位地址。参数区最多 4096 字节；单次输入数据合计最多 256 MiB；block 最多 1024 线程。使用 R0–R254，资源超限报错，不进行 spill。
 
 通用 runner：
@@ -102,4 +104,4 @@ FuncSim 和 CycleSim 共享功能语义，二者相等不能证明正确。因�
 
 书中 GPU 架构知识用于三个具体位置：线程层级映射为 S2R；分支转换为保留父掩码的谓词执行；寄存器按活跃区间复用以控制每线程资源。本版不生成一般跳转或汇聚栈指令，只在末尾生成一个无条件 EXIT。CycleSim 输出的周期数是模型值，不是真实显卡运行时间；尚未做性能优化或 RTL 兼容认证。
 
-常见编译诊断包含源文件、行列和错误码：`E_CLANG_VERSION`（前端版本）、`E_CLANG`（C++ 错误）、`E_CONVERSION`（未实现转换）、`E_UNINITIALIZED`、`E_REGISTERS`、`E_CODE_SIZE`、`E_ARTIFACT`。预期编译错误退出 2，内部错误退出 3；runner 和完整门槛失败均返回非零。
+常见编译诊断包含源文件、行列和错误码：`E_CLANG_VERSION`（前端版本）、`E_CLANG`（C++ 错误）、`E_CONVERSION`（未实现转换）、`E_LITERAL`（常量超范围）、`E_UNINITIALIZED`、`E_REGISTERS`、`E_CODE_SIZE`、`E_ARTIFACT`。预期编译错误退出 2，内部错误退出 3；runner 和完整门槛失败均返回非零。

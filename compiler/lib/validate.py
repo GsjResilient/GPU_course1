@@ -61,14 +61,29 @@ def _const_int(n, declarations):
         if op == '-': return -v
         if op == '+': return v
         if op == '!': return int(not v)
+        if op == '~': return ~v
     if k == 'BinaryOperator':
-        a,b = [const_int(c,declarations) for c in children]
         op = n['opcode']
+        a=const_int(children[0],declarations)
+        if op=='&&' and not a:return 0
+        if op=='||' and a:return 1
+        b=const_int(children[1],declarations)
         if op == '+': return a+b
         if op == '-': return a-b
         if op == '*': return a*b
+        if op == '&': return a&b
+        if op == '|': return a|b
+        if op == '^': return a^b
+        if op in ('<<','>>'):
+            if not 0<=b<32:raise ValueError('constant shift count must be 0..31')
+            return a<<b if op=='<<' else a>>b
         if op == '<': return int(a<b)
+        if op == '<=': return int(a<=b)
+        if op == '>': return int(a>b)
+        if op == '>=': return int(a>=b)
         if op == '==': return int(a==b)
+        if op == '!=': return int(a!=b)
+        if op in ('&&','||'):return int(bool(b))
     raise ValueError('not a supported integer constant expression')
 
 
@@ -101,7 +116,7 @@ def loop_contract(n, unit, declarations):
 
 
 def validate_kernel(unit, name):
-    functions, builtin_ids = [], set()
+    functions, builtin_ids, global_constants = [], set(), []
     def top(n):
         if not n or n.get('isImplicit'):
             return
@@ -116,6 +131,7 @@ def validate_kernel(unit, name):
             functions.append(n)
         elif kind == 'VarDecl' and n.get('constexpr'):
             kind_of(n, unit)
+            global_constants.append(n)
         elif n.get('loc') or n.get('range'):
             unit.error(n, 'E_DECL', 'unsupported top-level declaration: ' + str(kind))
     top(unit.ast)
@@ -148,7 +164,9 @@ def validate_kernel(unit, name):
     local_ids = {p['id'] for p in parameters} | {n['id'] for n in walk(body) if n.get('kind') == 'VarDecl'}
     constants = {n['id'] for n in walk(unit.ast) if n.get('kind') == 'VarDecl' and n.get('constexpr')}
     constant_decls = {n['id']: n for n in walk(unit.ast) if n.get('kind') == 'VarDecl' and n.get('constexpr')}
-    for n in walk(body):
+    global_ids={n['id'] for n in global_constants}
+    checked_nodes=[n for root in global_constants+[body] for n in walk(root)]
+    for n in checked_nodes:
         if not n.get('kind'): continue  # Clang's empty ForStmt condition-variable slot.
         k = n.get('kind')
         if k not in allowed:
@@ -159,7 +177,7 @@ def validate_kernel(unit, name):
             unit.error(n,'E_IF','if initializer/condition declarations are unsupported')
         if k == 'VarDecl':
             kind = kind_of(n, unit)
-            if kind.startswith('ptr_') or n.get('storageClass'):
+            if kind.startswith('ptr_') or n.get('storageClass') and n['id'] not in global_ids:
                 unit.error(n, 'E_DECL', 'local pointers and static/extern variables are unsupported')
         if k == 'DeclRefExpr':
             ref = n.get('referencedDecl', {})

@@ -94,6 +94,31 @@ class E2ETests(unittest.TestCase):
                      {'out':struct.pack('<32i',*range(32))},[BufferRef('out'),BufferRef('out')],
                      struct.pack('<32i',*[(x+2)*3-1 for x in range(32)]),block=(32,1,1))
 
+    def test_parenthesized_compound_lvalue_evaluated_once(self):
+        self.execute('NT_KERNEL void k(unsigned int* out){unsigned int i=0U;((out[i=i+1U]))+=7U;out[3]=i;}',
+                     {'out':struct.pack('<4I',10,20,30,0)},[BufferRef('out')],struct.pack('<4I',10,27,30,1))
+        self.execute('NT_KERNEL void k(unsigned int* out){unsigned int i=threadIdx.x;if(i<3U){((out[i]))+=7U;}}',
+                     {'out':struct.pack('<3I',10,20,30)},[BufferRef('out')],struct.pack('<3I',17,27,37),block=(32,1,1))
+
+    def test_sequenced_operand_snapshots(self):
+        cases=[('unsigned int i=0U;out[i=1U]=i;out[2]=i;',(10,0,1)),
+               ('unsigned int i=0U;out[i=1U]+=i;out[2]=i;',(10,20,1)),
+               ('unsigned int i=3U;out[0]=i<<(i=1U);out[1]=i;',(6,1,30))]
+        for body,expected in cases:
+            self.execute('NT_KERNEL void k(unsigned int* out){'+body+'}',
+                         {'out':struct.pack('<3I',10,20,30)},[BufferRef('out')],struct.pack('<3I',*expected))
+        self.execute('NT_KERNEL void k(unsigned int* out){unsigned int i=threadIdx.x;if(i<3U){unsigned int v=3U;out[i]=v<<(v=1U);}}',
+                     {'out':bytes(12)},[BufferRef('out')],struct.pack('<3I',6,6,6),block=(32,1,1))
+
+    def test_constant_bitwise_loop_bounds(self):
+        for bound,count in [('3&1',1),('2|1',3),('5^6',3),('~(-4)',3)]:
+            source='constexpr int N='+bound+';NT_KERNEL void k(int* out){int v=0;for(int j=0;j<N;++j){v+=1;}out[0]=v;}'
+            self.execute(source,{'out':bytes(4)},[BufferRef('out')],struct.pack('<i',count))
+
+    def test_valid_global_constexpr_values(self):
+        self.execute('constexpr float A=1.25f;constexpr float B=A+0.5f;NT_KERNEL void k(float* out){out[0]=B;}',
+                     {'out':bytes(4)},[BufferRef('out')],struct.pack('<f',1.75),floating=True)
+
     def test_resource_pressure(self):
         def source(n):
             declarations=''.join('int v'+str(i)+'=a['+str(i)+'];' for i in range(n))

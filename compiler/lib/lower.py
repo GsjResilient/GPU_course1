@@ -126,6 +126,9 @@ class Builder:
             return self.expr(children[0], guard)
         if kind == 'ImplicitCastExpr':
             val = self.expr(children[0], guard)
+            if n['castKind'] == 'LValueToRValue':
+                # C++ value reads survive later side effects on their source lvalue.
+                return self.emit('copy',val.kind,(val,),guard=guard,node=n)
             if n['castKind'] in ('IntegralToBoolean','FloatingToBoolean'):
                 zero = self.constant(0, val.kind, guard, n)
                 return self.emit('cmp_ne', 'bool', (val,zero), guard=guard, node=n)
@@ -135,7 +138,9 @@ class Builder:
             return self.emit('copy', target, (val,), guard=guard, node=n)
         if kind in ('IntegerLiteral','FloatingLiteral','CXXBoolLiteralExpr'):
             typ = kind_of(n, self.unit)
-            value = f32_literal_bits(n['value']) if typ == 'f32' else int(n['value'])
+            try:value = f32_literal_bits(n['value']) if typ == 'f32' else int(n['value'])
+            except (ValueError,OverflowError):
+                self.error(n,'E_LITERAL','literal is outside the supported finite type range')
             return self.constant(value, typ, guard, n)
         if kind == 'DeclRefExpr':
             id_ = n['referencedDecl']['id']
@@ -170,6 +175,7 @@ class Builder:
                 # C++17 evaluates RHS before LHS, and the LHS address exactly once.
                 right = self.expr(children[1],guard)
                 lhs = children[0]
+                while lhs['kind']=='ParenExpr':lhs=lhs['inner'][0]
                 if lhs['kind'] == 'ArraySubscriptExpr':
                     addr = self.address(lhs,guard)
                     left = self.emit('load',kind_of(lhs,self.unit),(addr,),guard=guard,node=n)

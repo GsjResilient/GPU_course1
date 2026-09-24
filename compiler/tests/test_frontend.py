@@ -1,4 +1,5 @@
 import unittest
+import subprocess,sys
 from compiler.tests.support import source_file
 
 try:
@@ -31,6 +32,26 @@ class FrontendTests(unittest.TestCase):
                 self.check('NT_KERNEL void k(float* p) {p[0]=' + expression + ';}')
         with self.assertRaisesRegex(CompileError, 'E_CONVERSION'):
             self.check('NT_KERNEL void k(unsigned int* p) {int a=1; p[0]=a;}')
+
+    def test_global_constexpr_initializers_obey_subset(self):
+        for declaration,kind in [('constexpr float C=1;','float'),
+                                 ('constexpr float C=1.0;','float'),
+                                 ('constexpr unsigned int C=-1;','unsigned int'),
+                                 ('constexpr int C=4/2;','int'),
+                                 ('constexpr int C=(int)1.0f;','int')]:
+            with self.subTest(declaration=declaration),self.assertRaises(CompileError):
+                self.check(declaration+'NT_KERNEL void k('+kind+'* p){p[0]=C;}')
+        with source_file('#include "constants.h"\nNT_KERNEL void k(float* p){p[0]=C;}') as s:
+            (s.parent/'constants.h').write_text('constexpr float C=1;')
+            with self.assertRaisesRegex(CompileError,'E_CONVERSION'):
+                validate_kernel(parse_source(s),'k')
+
+    def test_overflow_literal_is_located_compile_error(self):
+        with source_file('NT_KERNEL void k(float* p){p[0]=1e40f;}') as s:
+            result=subprocess.run([sys.executable,'compiler/nutcc.py',str(s),'--kernel','k','--out',str(s.parent/'out')],capture_output=True,text=True)
+            self.assertEqual(result.returncode,2,result.stderr)
+            self.assertIn('E_LITERAL',result.stderr)
+            self.assertIn('kernel.cpp:1:',result.stderr)
 
     def test_missing_entry(self):
         with self.assertRaisesRegex(CompileError, 'E_KERNEL'):
