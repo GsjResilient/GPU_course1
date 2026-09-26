@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fail-closed test release gate. Every mandatory suite must execute and pass."""
-import argparse,hashlib,json,os,platform,subprocess,sys,unittest,uuid
+import argparse,hashlib,json,os,platform,struct,subprocess,sys,unittest,uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
@@ -8,7 +8,7 @@ from compiler.lib.build import build_tools,REPO
 from compiler.lib.runtime import RunError
 
 BASE='c1b2aed4634bf2b82e0a2674caeabf2068c08c76'
-BRANCH='test/nutcc-v0.1'
+BRANCH='test/nutcc-v0.1.1'
 PROTECTED=['NutShellGPU_sim','NutShellGPU_hw','NutShellGPU_spec','examples']
 REQUIRED_SUITES={'environment','build','compiler','upstream','protected_sources','manual','source_stability'}
 ORDER=['environment','build','compiler','upstream','protected_sources','manual','source_stability']
@@ -27,6 +27,20 @@ def check_unittest_result(result):
     if result.get('tests',0)<=0 or any(result.get(k,1)!=0 for k in
             ('failures','errors','skipped','expected_failures','unexpected_successes')):
         raise RunError('unittest includes failed, skipped, missing or nonexecuted tests: '+str(result))
+
+
+def optimization_coverage(root):
+    sources=list(Path(root).glob('*/kernel.cpp'))
+    if not sources:raise RunError('no end-to-end source cases executed')
+    counts={}
+    for level in ('O0','O1'):
+        for source in sources:
+            mode=source.parent/level
+            for required in ('kernel.json','func/response.bin','cycle/response.bin'):
+                if not (mode/required).is_file():
+                    raise RunError(f'missing {level} end-to-end result: {mode/required}')
+        counts[level]=dict(kernels=len(sources),backend_runs=2*len(sources))
+    return counts
 
 
 def execute_suites(actions):
@@ -106,8 +120,12 @@ def run_gate(out):
         command([sys.executable,__file__,'--compiler-worker',str(path)],run/'compiler.log',commands,env=env,timeout=300)
         detail=json.loads(path.read_text());check_unittest_result(detail)
         report['counts']['compiler_tests']=detail['tests']
-        report['counts']['e2e_kernels']=len(list((run/'cases').glob('*/kernel.json')))
-        report['counts']['e2e_backend_runs']=len(list((run/'cases').glob('*/*/response.bin')))
+        coverage=optimization_coverage(run/'cases')
+        report['counts']['e2e_by_optimization']=coverage
+        report['counts']['e2e_source_cases']=coverage['O0']['kernels']
+        report['counts']['e2e_kernels']=sum(v['kernels'] for v in coverage.values())
+        report['counts']['e2e_backend_runs']=sum(v['backend_runs'] for v in coverage.values())
+        detail['optimization_coverage']=coverage
         return detail
     def upstream():
         src=REPO/'NutShellGPU_sim';root=run/'upstream';root.mkdir()
@@ -130,16 +148,26 @@ def run_gate(out):
         if diff or additions:raise RunError('protected upstream changed: '+diff+' '+additions)
         return dict(baseline=BASE,changed_files=[])
     def manual():
-        root=run/'manual';root.mkdir();prefix=root/'vector_add'
-        command([sys.executable,'compiler/nutcc.py','compiler/examples/vector_add.cpp','--kernel','vector_add','--out',str(prefix)],root/'compile.log',commands,env=env)
-        for backend in ('func','cycle'):
-            command([sys.executable,'compiler/examples/run_vector_add.py','--artifact',str(prefix)+'.json','--backend',backend,'--n','65'],root/(backend+'.log'),commands,env=env)
-        bad=root/'unsupported.cpp';bad.write_text((REPO/'compiler/examples/vector_add.cpp').read_text().replace('float','double'))
-        old={p.name:p.read_bytes() for p in root.glob('vector_add.*')}
-        command([sys.executable,'compiler/nutcc.py',str(bad),'--kernel','vector_add','--out',str(prefix)],root/'expected-rejection.log',commands,env=env,expected=2)
-        if old!={p.name:p.read_bytes() for p in root.glob('vector_add.*')}:raise RunError('failed compile changed previous artifact')
-        report['counts']['manual_checks']=4
-        return dict(compile=True,func=True,cycle=True,unsupported_type_rejected=True)
+        measurements={}
+        for level in ('O0','O1'):
+            root=run/'manual'/level;root.mkdir(parents=True);prefix=root/'vector_add'
+            command([sys.executable,'compiler/nutcc.py','compiler/examples/vector_add.cpp','-'+level,'--kernel','vector_add','--out',str(prefix)],root/'compile.log',commands,env=env)
+            meta=json.loads(prefix.with_suffix('.json').read_text())
+            metrics=dict(static_instructions=meta['instruction_count'],regs_u32=meta['regs_u32'])
+            for backend in ('func','cycle'):
+                command([sys.executable,'compiler/examples/run_vector_add.py','--artifact',str(prefix)+'.json','--backend',backend,'--n','65'],root/(backend+'.log'),commands,env=env)
+                response=(root/('run-'+backend)/'response.bin').read_bytes()
+                if response[:8]!=b'NTOUT01\0':raise RunError('invalid manual response')
+                instructions,cycles=struct.unpack_from('<QQ',response,8)
+                metrics[backend]=dict(instructions=instructions,cycles=cycles)
+            bad=root/'unsupported.cpp';bad.write_text((REPO/'compiler/examples/vector_add.cpp').read_text().replace('float','double'))
+            old={p.name:p.read_bytes() for p in root.glob('vector_add.*')}
+            command([sys.executable,'compiler/nutcc.py',str(bad),'-'+level,'--kernel','vector_add','--out',str(prefix)],root/'expected-rejection.log',commands,env=env,expected=2)
+            if old!={p.name:p.read_bytes() for p in root.glob('vector_add.*')}:raise RunError('failed compile changed previous artifact')
+            measurements[level]=metrics
+        report['counts']['manual_checks']=8
+        report['vector_add_n65']=measurements
+        return dict(by_optimization=measurements,unsupported_type_rejected=True)
     def stability():
         verify_source_unchanged(before,source_hashes())
         if initial_commit!=git('rev-parse','HEAD') or report['git']['branch']!=git('branch','--show-current'):

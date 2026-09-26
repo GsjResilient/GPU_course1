@@ -17,9 +17,13 @@ def main(argv=None):
     parser.add_argument('--kernel',required=True)
     parser.add_argument('--out',required=True,type=Path)
     parser.add_argument('--clang',default='clang++')
+    optimization=parser.add_mutually_exclusive_group()
+    optimization.add_argument('-O0',dest='opt_level',action='store_const',const=0,help='emit baseline code without predicate reuse')
+    optimization.add_argument('-O1',dest='opt_level',action='store_const',const=1,help='reuse unchanged adjacent predicates (default)')
+    parser.set_defaults(opt_level=1)
     args=parser.parse_args(argv)
     try:
-        manifest=compile_file(args.source,args.kernel,args.out,args.clang)
+        manifest=compile_file(args.source,args.kernel,args.out,args.clang,opt_level=args.opt_level)
         print('Compiled:',manifest)
         return 0
     except CompileError as e:

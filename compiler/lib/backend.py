@@ -14,7 +14,16 @@ class MachineProgram:
     regs_u32: int
 
 
-def generate(program):
+# These expansions preserve P0 and the active-lane mask. New operations must be
+# reviewed before joining this set; comparisons use P1, then a GPR destination.
+P0_PRESERVING_OPS=frozenset(('const','param','sr','copy','add','sub','mul','and','or','xor',
+                            'shl','shr','cmp_eq','cmp_ne','cmp_lt','cmp_le','cmp_gt','cmp_ge',
+                            'load','store'))
+
+
+def generate(program,opt_level=1):
+    if type(opt_level) is not int or opt_level not in (0,1):
+        raise CompileError('E_OPT_LEVEL','optimization level must be 0 or 1',program.instructions[-1].loc)
     allocation=allocate(program)
     words=[];listing=[]
     def add(word,text,loc):
@@ -25,11 +34,18 @@ def generate(program):
     reg=lambda v:allocation.registers[v.id]
     loc=program.instructions[-1].loc
     add(encode_i(2,0,1),'MOV32I R0, 1',loc)
+    cached_guard=None
     for ins in program.instructions:
         loc=ins.loc
         guard=None
+        reusable=opt_level==1 and ins.op in P0_PRESERVING_OPS
+        if not reusable or ins.guard is None:
+            cached_guard=None
         if ins.guard is not None:
-            add(encode_r(0x40,0,reg(ins.guard),255,x=0x11,y=0x83),f'SETP.NE.U32 P0, R{reg(ins.guard)}, RZ',loc)
+            key=(ins.guard.id,reg(ins.guard))
+            if cached_guard!=key:
+                add(encode_r(0x40,0,reg(ins.guard),255,x=0x11,y=0x83),f'SETP.NE.U32 P0, R{reg(ins.guard)}, RZ',loc)
+            cached_guard=key if reusable else None
             guard=(0,False)
         d=reg(ins.dst) if ins.dst else 0
         args=[reg(v) for v in ins.args]
@@ -60,4 +76,7 @@ def generate(program):
             add(encode_mi(0x60 if op=='load' else 0x61,data,a,width<<3,0,0,guard),prefix+f'{op.upper()}.{width} R{data}, [R{a}]',loc)
         elif op=='exit':add(encode_r(0x57,0),'EXIT',loc)
         else:raise CompileError('E_BACKEND','unknown IR operation: '+op,loc)
+        # Even a predicated partial write changes the cached mask's value.
+        if cached_guard is not None and ins.dst is not None and d==cached_guard[1]:
+            cached_guard=None
     return MachineProgram(program.name,words,listing,program.params,program.param_size,allocation.regs_u32)

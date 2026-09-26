@@ -15,9 +15,13 @@ class RuntimeTests(unittest.TestCase):
 
     def run_source(self,text,buffers,args,block=(32,1,1),**kwargs):
         with source_file(text) as s:
-            m=compile_file(s,'k',s.parent/'k')
-            return [run_artifact(m,backend,buffers,args,(1,1,1),block,s.parent/backend,**kwargs)
-                    for backend in ('func','cycle')]
+            results=[]
+            for level in (0,1):
+                mode=s.parent/f'O{level}'
+                m=compile_file(s,'k',mode/'k',opt_level=level)
+                results.extend(run_artifact(m,backend,buffers,args,(1,1,1),block,mode/backend,**kwargs)
+                               for backend in ('func','cycle'))
+            return results
 
     def test_run_constant(self):
         results=self.run_source('NT_KERNEL void k(unsigned int* p){p[threadIdx.x]=7U;}',
