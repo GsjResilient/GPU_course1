@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from compiler.tests.test_lower import lower_text
 from compiler.lib.ir import Program,VReg,IRInst
 from compiler.lib.diagnostics import SourceLoc,CompileError
+from compiler.lib.toolchain import native_command
 try:
     from compiler.lib.ntas import encode_i,encode_r,encode_mi
     from compiler.lib.backend import generate
@@ -62,7 +63,7 @@ class BackendTests(unittest.TestCase):
         self.assertTrue(source.is_file(),'original decoder checker is missing')
         with TemporaryDirectory() as td:
             root=Path(td); checker=root/'decode'
-            subprocess.run(['clang++','-std=c++17','-I','NutShellGPU_sim',str(source),'-o',str(checker)],check=True,capture_output=True)
+            subprocess.run(native_command()+['-std=c++17','-I','NutShellGPU_sim',str(source),'-o',str(checker)],check=True,capture_output=True)
             p=generate(lower_text('NT_KERNEL void k(float* p,float n){if(n>0.0f){p[threadIdx.x]=-n;}}'))
             code=root/'code.bin';code.write_bytes(b''.join(struct.pack('<Q',w) for w in p.words))
             self.assertEqual(subprocess.run([str(checker),str(code),str(p.regs_u32)],capture_output=True).returncode,0)

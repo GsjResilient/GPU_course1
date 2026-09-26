@@ -7,6 +7,7 @@ import json
 import shlex
 import subprocess
 from .diagnostics import CompileError, SourceLoc
+from .toolchain import frontend_compiler, supported_frontend, SUPPORTED_FRONTENDS
 
 INCLUDE = Path(__file__).resolve().parents[1] / 'include'
 SDK = INCLUDE / 'nutcc.h'
@@ -52,15 +53,16 @@ def annotate_files(ast, default):
     visit(ast, default)
 
 
-def parse_source(source, clang='clang++'):
+def parse_source(source, clang=None):
+    clang = frontend_compiler(clang)
     source = Path(source).resolve()
     loc = SourceLoc(str(source), 1, 1)
     try:
         data = source.read_bytes()
         version = subprocess.run([clang, '--version'], capture_output=True, text=True,
                                  timeout=10, check=True).stdout.splitlines()[0]
-        if not version.startswith('Apple clang version 21.0.0 '):
-            raise CompileError('E_CLANG_VERSION', 'supported frontend: Apple Clang 21.0.0; got ' + version, loc)
+        if not supported_frontend(version):
+            raise CompileError('E_CLANG_VERSION', 'supported frontend: ' + SUPPORTED_FRONTENDS + '; got ' + version, loc)
         with TemporaryDirectory(prefix='nutcc-clang-') as td:
             depfile = Path(td) / 'source.d'
             cmd = [clang, '-std=c++17', '-fsyntax-only', '-Xclang', '-ast-dump=json',

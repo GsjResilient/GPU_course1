@@ -1,16 +1,18 @@
-# NutCC 0.1.1-test.1
+# NutCC 0.1.2-test.1
 
 NutShellGPU 1.10 的实验性 C++ kernel 编译器：复用 Clang 类型分析，生成真实 NTAS1 机器码，在原版 FuncSim / CycleSim 上执行。只新增 `compiler/` 及文档；不使用 NVIDIA 计算库。
 
-这是明确受限的 C++17 子集，**不是完整 C++、CUDA 编译器，也不是 GPU 1.2 或 RTL 验证版本**。分支为 `test/nutcc-v0.1.1`，本地测试标签为 `nutcc-v0.1.1-test.1`（仅完整门槛通过后创建）。原 0.1.0 目录和标签保留。
+这是明确受限的 C++17 子集，**不是完整 C++、CUDA 编译器，也不是 GPU 1.2 或 RTL 验证版本**。分支为 `test/nutcc-v0.1.2`，测试标签为 `nutcc-v0.1.2-test.1`（仅完整门槛通过后创建）。旧版分支和标签保留。编译器贡献者：**WenjunCui**。
 
 ## 前提与快速测试
 
-当前支持并验证 macOS ARM64、Apple Clang **21.0.0**、Python **3.9+**。JSON AST 随 Clang 版本变化，其他版本明确拒绝。需要 `clang++`、`python3`、`git` 在 PATH。无需 CMake、CUDA Toolkit、NumPy、PyTorch。构建最多使用两个并行 C++ 编译进程。
+需要 Python **3.9+**、Git 和 C++ 工具链。前端适配 **LLVM Clang 18.1.x**（包括 Ubuntu / Debian / Homebrew 版本标识）以及 **Apple Clang 21.0.0**。普通 Linux 用户不需要 Apple 电脑。其他 Clang 版本仍明确拒绝：JSON AST 不是稳定接口，不能仅凭版本较新就宣称兼容。
+
+各平台的安装、工具链选择、实测范围及 Windows WSL 路线见 [跨平台使用说明](PORTABILITY.md)。无需 CMake、CUDA Toolkit、NumPy、PyTorch；本项目不依赖 NVIDIA 计算库。构建最多使用两个并行 C++ 编译进程。
 
 ```sh
-cd "/Users/molly/projects/GPU编程/NutShellGPU-nutcc-v0.1.1"
-git switch test/nutcc-v0.1.1
+# 先进入包含 compiler/ 的仓库根目录，按 PORTABILITY.md 选择 Clang。
+git switch test/nutcc-v0.1.2
 
 # 完整门槛：任何失败、跳过、缺依赖、测试期间源码变化均返回非零。
 python3 compiler/tests/run_tests.py --all --out build/nutcc-test
@@ -30,17 +32,23 @@ python3 compiler/examples/run_vector_add.py \
 
 只允许在最终提交上通过全部门槛、工作区干净且报告提交/源码哈希匹配后创建测试标签。不要将旧报告作为修改后代码的通过证明。单独调试可运行 `python3 -m unittest discover -s compiler/tests -v`，但它不替代完整门槛。
 
-## 0.1.1 的优化与对照
+## 0.1.2 的兼容性变化
+
+前端、产物读取和测试门槛共用同一份版本规则。`NUTCC_CLANG` 对 Python API、命令行、测试子进程均生效；原生运行器及 CPU oracle 默认使用同一个编译器，也可通过 `NUTCC_CXX` 指定独立 C++ 编译器。报告记录两者的版本、调用路径和宿主架构，防止只更换前端而测试仍偷偷使用系统 Apple Clang。
+
+语言子集、NTAS1 ABI、O0/O1 优化及模拟器源码保持原约定。新 runner 要求产物编译器版本匹配，旧版产物请使用相应旧版 runner，或用 0.1.2 重新编译源码。
+
+## 0.1.1 引入的优化与对照
 
 `-O1` 是默认设置：复用相邻指令中不变的执行谓词 P0，删除重复的 `SETP`。guard 改变、出现无守卫指令、写回掩码所在寄存器时立即失效。比较使用 P1，不会覆盖缓存的 P0；新增指令默认不参与复用，直到确认其不修改 P0 和活跃线程掩码。
 
 `-O0` 保持 0.1.0 的机器码生成方式，用于对照和排查。只支持 0、1 两档，不能同时指定；Python API 为 `compile_file(..., opt_level=0|1)` 和 `generate(program, opt_level=0|1)`。未传等级时默认 1。
 
-本轮没有移除 C++ 值快照、移动访存、融合浮点运算或修改寄存器分配。示例 `vector_add` 的静态机器码从 **66 条减至 46 条**，寄存器槽仍为 **10**；这不等于运行时间下降同样比例。完整门槛报告的 `vector_add_n65` 会记录两档的静态指令数、执行指令数和模拟周期。
+这项优化没有移除 C++ 值快照、移动访存、融合浮点运算或修改寄存器分配。示例 `vector_add` 的静态机器码从 **66 条减至 46 条**，寄存器槽仍为 **10**；这不等于运行时间下降同样比例。完整门槛报告的 `vector_add_n65` 会记录两档的静态指令数、执行指令数和模拟周期。
 
-语言子集、参数 ABI、机器码 profile 与 manifest 字段保持原约定。产物仍要求编译器版本匹配，0.1.0 产物请用旧版 runner，或用 0.1.1 重新编译源码。优化等级保留在构建命令/测试报告中，产物用机器码哈希验证，不新增 manifest 字段。
+优化等级保留在构建命令/测试报告中，产物用机器码哈希验证，不新增 manifest 字段。
 
-手动比较两档（在上述新目录中执行）：
+手动比较两档（在仓库根目录执行）：
 
 ```sh
 for opt in 0 1; do
@@ -128,6 +136,6 @@ FP32 文件为小端 binary32；本例三个文件均含 65 个元素。缓冲�
 
 FuncSim 和 CycleSim 共享功能语义，二者相等不能证明正确。因此整数使用独立 Python 参考，浮点使用不包含编译器/模拟器代码的 C++ binary32 oracle，严格 RN、禁 FMA，验证次正规数、正负零、无穷和 NaN 分类。测试原有八个入口不表示修复历史 GPU BUG；本阶段未执行可选 CNN 测试。
 
-书中 GPU 架构知识用于线程层级映射、保留父掩码的谓词执行，以及按活跃区间复用寄存器。0.1.1 利用同一 SIMT 掩码可服务连续指令的性质，减少重复谓词计算。本版不生成一般跳转或汇聚栈指令，只在末尾生成一个无条件 EXIT。CycleSim 输出的周期数是模型值，不是真实显卡运行时间；本轮完成的是局部代码生成优化，尚无 RTL 兼容认证。
+书中 GPU 架构知识用于线程层级映射、保留父掩码的谓词执行，以及按活跃区间复用寄存器。0.1.1 利用同一 SIMT 掩码可服务连续指令的性质，减少重复谓词计算。本版不生成一般跳转或汇聚栈指令，只在末尾生成一个无条件 EXIT。CycleSim 输出的周期数是模型值，不是真实显卡运行时间；0.1.2 增加宿主工具链兼容性，尚无 RTL 兼容认证。
 
 常见编译诊断包含源文件、行列和错误码：`E_CLANG_VERSION`（前端版本）、`E_CLANG`（C++ 错误）、`E_CONVERSION`（未实现转换）、`E_LITERAL`（常量超范围）、`E_OPT_LEVEL`（API 优化等级错误）、`E_UNINITIALIZED`、`E_REGISTERS`、`E_CODE_SIZE`、`E_ARTIFACT`。预期编译错误退出 2，内部错误退出 3；runner 和完整门槛失败均返回非零。

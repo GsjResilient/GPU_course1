@@ -7,6 +7,7 @@ import re
 import struct
 from tempfile import TemporaryDirectory
 from .diagnostics import CompileError,SourceLoc
+from .toolchain import supported_frontend
 
 VERSION=(Path(__file__).resolve().parents[1]/'VERSION').read_text().strip()
 PROFILE='ntas1-sim-v1.10-low32-predicated-v1'
@@ -42,7 +43,7 @@ def validate_manifest(meta,path):
         if type(meta[key]) is not str or not re.fullmatch('[0-9a-f]{64}',meta[key]):fail(path,'invalid '+key)
     if not isinstance(meta['dependencies'],dict) or not all(type(k) is str and type(v) is str and re.fullmatch('[0-9a-f]{64}',v) for k,v in meta['dependencies'].items()):
         fail(path,'invalid dependency hashes')
-    if type(meta['clang_version']) is not str or not meta['clang_version'].startswith('Apple clang version 21.0.0 '):fail(path,'unsupported frontend version')
+    if not supported_frontend(meta['clang_version']):fail(path,'unsupported frontend version')
     if type(meta['kernel']) is not str or not re.fullmatch('[A-Za-z_][A-Za-z_0-9]*',meta['kernel']):fail(path,'invalid kernel name')
     if type(meta['code_file']) is not str or not meta['code_file'].endswith('.ntbin') or Path(meta['code_file']).name!=meta['code_file'] or '\\' in meta['code_file']:
         fail(path,'code_file must be a local basename')

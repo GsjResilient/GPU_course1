@@ -2,14 +2,16 @@
 from concurrent.futures import ThreadPoolExecutor
 import hashlib,json,subprocess
 from pathlib import Path
+from .toolchain import native_compiler,native_command
 
 REPO=Path(__file__).resolve().parents[2]
 
 
-def build_tools(out,cxx='clang++'):
+def build_tools(out,cxx=None):
+    cxx=native_compiler(cxx)
     out=Path(out).resolve();out.mkdir(parents=True,exist_ok=True)
     src=REPO/'NutShellGPU_sim'
-    flags=[cxx,'-std=c++17','-O2','-frounding-math','-ffp-contract=off','-I'+str(src)]
+    flags=native_command(cxx)+['-std=c++17','-O2','-frounding-math','-ffp-contract=off','-I'+str(src)]
     version=subprocess.check_output([cxx,'--version'],text=True)
     files=sorted((REPO/'compiler/runtime').glob('*'))+[REPO/'compiler/tests/decode_check.cpp',src/'func/func_sim.cpp',src/'timing/cycle_sim.cpp']+sorted(src.rglob('*.hpp'))
     oracle=REPO/'compiler/tests/oracle.cpp'

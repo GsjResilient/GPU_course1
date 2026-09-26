@@ -6,9 +6,10 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from compiler.lib.build import build_tools,REPO
 from compiler.lib.runtime import RunError
+from compiler.lib.toolchain import frontend_compiler,native_compiler,native_command,supported_frontend,SUPPORTED_FRONTENDS
 
 BASE='c1b2aed4634bf2b82e0a2674caeabf2068c08c76'
-BRANCH='test/nutcc-v0.1.1'
+BRANCH='test/nutcc-v0.1.2'
 PROTECTED=['NutShellGPU_sim','NutShellGPU_hw','NutShellGPU_spec','examples']
 REQUIRED_SUITES={'environment','build','compiler','upstream','protected_sources','manual','source_stability'}
 ORDER=['environment','build','compiler','upstream','protected_sources','manual','source_stability']
@@ -99,16 +100,17 @@ def run_gate(out):
     run=out/('run-'+uuid.uuid4().hex[:12]);run.mkdir()
     commands=[];tools={};before=source_hashes();initial_commit=git('rev-parse','HEAD')
     report=dict(format='nutcc-test-report-v1',git=dict(commit=initial_commit,branch=git('branch','--show-current'),
-                dirty=bool(git('status','--porcelain'))),seed=20260924,os=platform.platform(),
+                dirty=bool(git('status','--porcelain'))),seed=20260924,os=platform.platform(),arch=platform.machine(),
                 source_hashes=before,commands=commands,run_directory=str(run),counts={})
     env=dict(os.environ,NUTCC_TOOLS_DIR=str(run/'tools'),NUTCC_CASE_DIR=str(run/'cases'))
     def environment():
         if sys.version_info<(3,9):raise RunError('Python 3.9+ required')
         versions={name:command(cmd,run/(name+'.log'),commands) for name,cmd in
-                  [('clang',['clang++','--version']),('python',[sys.executable,'--version'])]}
-        if not versions['clang'].startswith('Apple clang version 21.0.0 '):raise RunError('requires Apple Clang 21.0.0')
+                  [('clang',[frontend_compiler(),'--version']),('cxx',[native_compiler(),'--version']),('python',[sys.executable,'--version'])]}
+        if not supported_frontend(versions['clang'].splitlines()[0]):raise RunError('requires '+SUPPORTED_FRONTENDS)
         if report['git']['branch']!=BRANCH:raise RunError('requires testing branch '+BRANCH)
         report['versions']=versions
+        report['toolchain']=dict(frontend=frontend_compiler(),native=native_compiler(),native_command=native_command())
         return versions
     def build():
         tools.update(build_tools(run/'tools'))
@@ -129,7 +131,7 @@ def run_gate(out):
         return detail
     def upstream():
         src=REPO/'NutShellGPU_sim';root=run/'upstream';root.mkdir()
-        flags=['clang++','-std=c++17','-O2','-frounding-math','-ffp-contract=off','-I'+str(src)]
+        flags=native_command()+['-std=c++17','-O2','-frounding-math','-ffp-contract=off','-I'+str(src)]
         names=['t_decode','t_saxpy','t_diverge','t_runtime_v2','t_timing_v11','t_repairs','t_stats_time','cycle_builtin']
         def one(name):
             directory=root/name;directory.mkdir()
