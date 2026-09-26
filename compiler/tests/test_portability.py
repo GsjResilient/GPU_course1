@@ -93,13 +93,18 @@ class PortabilityTests(unittest.TestCase):
 
     def test_relative_compiler_path_survives_native_build_directory(self):
         selected = shutil.which(toolchain.frontend_compiler())
+        selected_native = shutil.which(toolchain.native_compiler())
         self.assertIsNotNone(selected)
+        self.assertIsNotNone(selected_native)
         with TemporaryDirectory(prefix='nutcc tool path ') as directory:
             root = Path(directory)
             executable = root / 'clang++'
             executable.symlink_to(Path(selected).resolve())
             relative = os.path.relpath(executable)
-            with patch.dict(os.environ, {'NUTCC_CLANG': relative, 'NUTCC_CXX': ''}):
+            native = root / 'native' / 'clang++'
+            native.parent.mkdir()
+            native.symlink_to(Path(selected_native).resolve())
+            with patch.dict(os.environ, {'NUTCC_CLANG': relative, 'NUTCC_CXX': os.path.relpath(native)}):
                 source = root / 'kernel.cpp'
                 source.write_text('NT_KERNEL void k(int* out){out[0]=42;}')
                 manifest = compile_file(source, 'k', root / 'kernel')
