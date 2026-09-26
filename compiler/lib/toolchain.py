@@ -6,6 +6,7 @@ and exact tested versions are recorded separately in the release report.
 """
 import os
 import re
+from pathlib import Path
 
 
 SUPPORTED_FRONTENDS = 'LLVM Clang 18.1.x or Apple Clang 21.0.0'
@@ -20,12 +21,19 @@ def supported_frontend(version):
         version))
 
 
+def _executable(value):
+    value = os.fspath(value)
+    # Preserve the executable basename: resolving clang++'s symlink to clang
+    # can change the driver's C++ link behavior. Only anchor relative paths.
+    return os.path.abspath(value) if os.path.dirname(value) else value
+
+
 def frontend_compiler(explicit=None):
-    return explicit or os.environ.get('NUTCC_CLANG') or 'clang++'
+    return _executable(explicit or os.environ.get('NUTCC_CLANG') or 'clang++')
 
 
 def native_compiler(explicit=None):
-    return explicit or os.environ.get('NUTCC_CXX') or frontend_compiler()
+    return _executable(explicit or os.environ.get('NUTCC_CXX') or frontend_compiler())
 
 
 def native_command(explicit=None):
@@ -34,5 +42,5 @@ def native_command(explicit=None):
     # for headers but retain a baked-in default sysroot for the linker.
     sysroot = os.environ.get('NUTCC_SYSROOT')
     if sysroot:
-        command.append('--sysroot=' + sysroot)
+        command.append('--sysroot=' + str(Path(sysroot).resolve()))
     return command

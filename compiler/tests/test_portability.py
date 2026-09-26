@@ -1,6 +1,7 @@
 """Compatibility policy and user-selected toolchains must agree end to end."""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import unittest
@@ -89,6 +90,29 @@ class PortabilityTests(unittest.TestCase):
             with patch.dict(os.environ, {'NUTCC_SYSROOT': str(root / 'missing-sdk')}):
                 with self.assertRaises(RuntimeError):
                     build_tools(root / 'tools')
+
+    def test_relative_compiler_path_survives_native_build_directory(self):
+        selected = shutil.which(toolchain.frontend_compiler())
+        self.assertIsNotNone(selected)
+        with TemporaryDirectory(prefix='nutcc tool path ') as directory:
+            root = Path(directory)
+            executable = root / 'clang++'
+            executable.symlink_to(Path(selected).resolve())
+            relative = os.path.relpath(executable)
+            with patch.dict(os.environ, {'NUTCC_CLANG': relative, 'NUTCC_CXX': ''}):
+                source = root / 'kernel.cpp'
+                source.write_text('NT_KERNEL void k(int* out){out[0]=42;}')
+                manifest = compile_file(source, 'k', root / 'kernel')
+                self.assertEqual(load_artifact(manifest)[0]['kernel'], 'k')
+                tools = build_tools(root / 'tools')
+                self.assertTrue(all(p.is_file() for p in tools.values()))
+
+    def test_relative_sysroot_is_resolved_before_changing_build_directory(self):
+        with TemporaryDirectory(prefix='nutcc sdk path ') as directory:
+            root = Path(directory)
+            relative = os.path.relpath(root)
+            with patch.dict(os.environ, {'NUTCC_SYSROOT': relative}):
+                self.assertIn('--sysroot=' + str(root.resolve()), toolchain.native_command())
 
     def test_frontend_selection_also_selects_native_compiler(self):
         self.assertIsNotNone(toolchain, 'shared toolchain policy is missing')

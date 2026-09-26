@@ -54,7 +54,7 @@ WSL 的操作系统、架构组合需要单独跑完整门槛；普通 Linux 测
 | kernel 前端 | CLI `--clang` / API `clang=` → `NUTCC_CLANG` → PATH 中的 `clang++` |
 | 原生运行器、解码检查器、CPU oracle | API `build_tools(..., cxx=...)` → `NUTCC_CXX` → `NUTCC_CLANG` → PATH 中的 `clang++` |
 
-环境变量的值是**一个可执行文件名或路径**，不要附带命令行参数。含空格的路径用引号包住。显式 `--clang` 只影响当次 kernel 编译；若还要运行产物或完整测试，推荐导出 `NUTCC_CLANG`，它会传递到子进程。
+环境变量的值是**一个可执行文件名或路径**，不要附带命令行参数。含空格的路径用引号包住。带目录的编译器路径及 `NUTCC_SYSROOT` 可以是相对路径，按调用者当前目录转为绝对路径，避免构建切换工作目录后失效。显式 `--clang` 只影响当次 kernel 编译；若还要运行产物或完整测试，推荐导出 `NUTCC_CLANG`，它会传递到子进程。
 
 例如，macOS 上用 LLVM 前端、Apple 工具链构建宿主运行器：
 
@@ -91,7 +91,7 @@ python3 compiler/examples/run_vector_add.py \
 | macOS 26.6.2 / ARM64 | Homebrew LLVM Clang 18.1.8 | 同版 LLVM，显式本机 SDK | PASS |
 | Ubuntu 24.04 / ARM64，Linux 6.8 | Ubuntu LLVM Clang 18.1.3 | 同版 LLVM + libstdc++ | PASS |
 
-每个完整门槛包含 **83 项 unittest、70 个端到端源码用例、O0/O1 合计 140 个编译产物、280 次后端执行、8 项上游回归及 8 项手测检查**。整数使用独立 Python 参考，浮点使用独立 C++ binary32 oracle。版本标识与 manifest 元数据的单元测试只检查接口策略，不充当跨平台执行证据。
+每个完整门槛包含 **85 项 unittest、70 个端到端源码用例、O0/O1 合计 140 个编译产物、280 次后端执行、8 项上游回归及 8 项手测检查**。整数使用独立 Python 参考，浮点使用独立 C++ binary32 oracle。版本标识与 manifest 元数据的单元测试只检查接口策略，不充当跨平台执行证据。
 
 Linux 在本机隔离 Ubuntu 虚拟机内实测：2 CPU、4 GiB 内存、16 GiB 磁盘、未共享宿主主目录；整个流程没有 Apple 工具链。macOS 还验证过 LLVM 前端 + Apple 原生工具链的混合配置。上述 ARM64 结果不代表 x86_64、其他发行版或 WSL 已通过。Windows 原生支持仍未实现。所有支持范围仍是 README 中的 C++17 kernel 子集，不因跨平台适配而扩展为完整 C++ / CUDA；此版仍未执行 RTL。
 
