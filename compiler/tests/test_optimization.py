@@ -112,4 +112,3 @@ class OptimizationTests(unittest.TestCase):
                     result=run_artifact(manifest,backend,{'out':struct.pack('<I',11)},[BufferRef('out')],
                                         (1,1,1),(32,1,1),s.parent/f'o{level}-{backend}')
                     self.assertEqual(result.buffers['out'],struct.pack('<I',11))
-
