@@ -3,13 +3,11 @@
 
 <!-- =============================================================================
 NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-Author: Di Zhao, Trae CN
-Contact: zhaodi@ucas.ac.cn
-References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
-            General-Purpose Graphics Processor Architecture,
-            Morgan & Claypool, 2018
+Version 1.3
+Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
+Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
 September 2026
-Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 ============================================================================= -->
 
 NutCC 用 Clang 完成 C++ 语法和类型分析，再由自己的后端生成 NutShellGPU 指令。它不需要 Apple 专用 API，也不使用 NVIDIA 计算库；Clang 是外部编译工具，不是 C++ 标准库。
