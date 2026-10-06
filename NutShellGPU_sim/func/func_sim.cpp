@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // func_sim.cpp - 功能模拟器实现 (S2, 无时序模型)
 // =============================================================================
@@ -364,6 +364,9 @@ void PageMem::memset(uint64_t a, uint8_t val, size_t n) {
 // 调用时机: 模拟器启动时调用一次
 // 教材引用: 第 1 章 §1.2 GPU Hardware Basics (p.2) — init 创建所有 NSM (SM), 对应教材中 GPU 硬件基础: 多个 SM 组成集群, 每 SM 含 warp 槽/CTA 槽/寄存器堆
 void FuncSim::init() {
+    debug_before = {};
+    debug_paused = false;
+    debug_resume_sm = debug_resume_warp = 0;
     int n = cfg.n_nsm();           // NSM 总数 = n_clusters × n_cores_per_cluster (默认 16)
     nsms.resize(n);                // 创建 n 个 NSM 状态
     for (int i = 0; i < n; i++) {
@@ -845,6 +848,7 @@ int FuncSim::sync() {
             return error.code;
         }
         bool any_progress = step_one_round();  // 执行一轮 (所有 warp 各一条指令)
+        if (debug_paused) return ERR_OK; // Paused is not completed; inspect debug_paused/is_done.
         if (!any_progress && !is_done()) {
             error.code = ERR_DEADLOCK;
             error.msg = "No progress before all CTAs completed";
@@ -859,15 +863,22 @@ int FuncSim::sync() {
 // 教材引用: 第 3 章 §3.1.3 Warp Scheduling (p.31) — step_one_round 遍历所有 warp 各执行一条指令, 对应教材中 round-robin 轮询调度策略
 bool FuncSim::step_one_round() {
     bool any_progress = false;
+    debug_paused = false;
     // 遍历所有 NSM
-    for (int sm = 0; sm < (int)nsms.size(); sm++) {
+    for (int sm = debug_resume_sm; sm < (int)nsms.size(); sm++) {
         NSMState& nsm = nsms[sm];
         if(nsm.cur_ctas==0)continue;
         // 遍历该 NSM 的所有 warp 槽
-        for (int w = 0; w < cfg.max_warps_per_core; w++) {
+        for (int w = (sm == debug_resume_sm ? debug_resume_warp : 0); w < cfg.max_warps_per_core; w++) {
             // 跳过无效/已退出/等屏障的 warp
             if (!nsm.warps[w].valid || nsm.warps[w].exit_done) continue;
             if (nsm.warps[w].bar_wait >= 0) continue;  // 在屏障上等待
+            if (debug_before && debug_before(sm, w, nsm.warps[w].stack[nsm.warps[w].tos].nextpc)) {
+                debug_paused = true;
+                debug_resume_sm = sm;
+                debug_resume_warp = w;
+                return any_progress;
+            }
             int err = step_warp(nsm, w);  // 执行一条指令
             if (err != ERR_OK) {
                 error.code = err;
@@ -878,6 +889,7 @@ bool FuncSim::step_one_round() {
             any_progress = true;
         }
     }
+    debug_resume_sm = debug_resume_warp = 0;
     // 检查 CTA 完成情况: 所有 warp EXIT → 释放资源
     for (int sm = 0; sm < (int)nsms.size(); sm++) {
         NSMState& nsm = nsms[sm];

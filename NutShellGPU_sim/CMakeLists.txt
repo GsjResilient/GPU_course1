@@ -1,8 +1,7 @@
 # =============================================================================
 # NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-# Version 1.10
-# Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-# Improved by: Tonghui Ming
+# Author: Di Zhao, Trae CN
+# Contact: zhaodi@ucas.ac.cn
 # References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 #             General-Purpose Graphics Processor Architecture,
 #             Morgan & Claypool, 2018
@@ -25,7 +24,7 @@
 
 # CMake 最低版本要求 3.10 (支持 C++17 标准)
 cmake_minimum_required(VERSION 3.10)
-project(NutShellGPU_sim VERSION 1.1.0 LANGUAGES CXX)
+project(NutShellGPU_sim VERSION 1.2.0 LANGUAGES CXX)
 
 # 使用 C++17 标准 (structured bindings, constexpr if 等特性)
 set(CMAKE_CXX_STANDARD 17)

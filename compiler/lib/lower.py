@@ -11,6 +11,17 @@ SR = {'threadIdx':(0,1,2),'blockIdx':(8,9,10),'blockDim':(11,12,13),'gridDim':(1
 
 def f32_literal_bits(text):
     """Exact rational to IEEE binary32 round-to-nearest, ties-to-even."""
+
+# =============================================================================
+# NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+# Author: Di Zhao, Trae CN
+# Contact: zhaodi@ucas.ac.cn
+# References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+#             General-Purpose Graphics Processor Architecture,
+#             Morgan & Claypool, 2018
+# September 2026
+# Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+# =============================================================================
     text = text.lower()
     sign = 0x80000000 if text.startswith('-') else 0
     text = text.lstrip('+-')

@@ -1,92 +1,113 @@
-# NutShellGPU 1.1.0 改进日志
+# NutShellGPU 版本变更记录
 
-NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
-Version 1.10  
-Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
-Improved by: Tonghui Ming  
-References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
+
+<!-- =============================================================================
+NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+Author: Di Zhao, Trae CN
+Contact: zhaodi@ucas.ac.cn
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+            General-Purpose Graphics Processor Architecture,
+            Morgan & Claypool, 2018
 September 2026
+Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+============================================================================= -->
 
+## 版本演进概览
 
-## 程序运行时间测量
+- **1.1 CycleSim 周期模拟器**（作者：明同辉，26秋）：新增 T01–T07 时序机制（到期写回、指令差异延迟、依赖互锁、寄存器 Bank 冲突、内存时序等），性能从"跑对"变为"可量化"
+- **1.2 调试器 + 官方工具链**（作者：王一锴，26秋）：模拟器增加调试钩子，NTDB 支持源码级断点/单步/Lane 切换/SIMT 栈观察；补齐 NTCC、NTASM、ntrun、ntruntime 完整文档
+- **1.3 NutCC**（作者：崔文君，26秋）：a .cpp compatible compiler on LLVM Clang 18.1.x 和 Apple Clang 21.0.0
 
-新增 `NutShellGPU_sim/tests/benchmark_process.py`，使用 Python 标准库在进程外测量完整运行时间，保存重复测量、退出码、模拟周期、样本数、平台和文件哈希。补充说明第 07 册定义计时边界和复现方法。该入口不改变模拟器执行规则；正确性检查独立于计时区间执行。
+主线：**1.1 证明性能可测 → 1.2 让学生能自己写 kernel 并源码级调试 → 1.3 引入真实 C++ 语法编译路线**。
 
-统计新增 `simulated_seconds`，按 `cycles / (core_clock_ghz × 10^9)` 换算虚拟运行时间，保留纳秒级数值。程序实际运行时间仍单独测量。新增频率与周期换算测试。
+---
 
-## 新增时序机制
+## 1.2.0
 
-| 项目 | 改动 | 主要位置 |
-|---|---|---|
-| T01 到期写回 | 发射、收集不提前修改架构状态；ready_cycle 到期且取得提交端口才执行功能语义 | timing/cycle_sim.cpp：collector_tick、writeback_tick |
-| T02 指令差异 | 搬运、整数、乘法、除法、浮点、SFU、DP、shuffle、控制流分别设置延时 | timing/timing_model.hpp：execution_latency |
-| T03 依赖互锁 | 每 warp 未提交指令持有互锁，覆盖数据、谓词、宽寄存器和控制依赖 | timing/cycle_sim.hpp：CycWarpState；cycle_sim.cpp：fetch_tick、issue_tick |
-| T04 寄存器组冲突 | GPR bank 端口竞争、重复源广播、跨 collector 轮询仲裁 | timing/cycle_sim.cpp：collector_tick |
-| T05 执行资源 | 延时与启动间隔分离；有限执行槽、lane 数吞吐限制和提交端口竞争 | timing/cycle_sim.cpp：init、collector_tick、writeback_tick |
-| T06 内存时序 | 扇区合并、shared bank 冲突、L1/L2 时序 tag、有限 MSHR、NoC 带宽、DRAM bank/行与总线 | timing/cycle_sim.cpp：memory_ready；timing_model.hpp：TimingCache |
-| T07 配置与统计 | 模拟 ns 到周期换算、配置合法性检查、1.1 统计字段和带宽单位修正 | func/func_sim.hpp：Config；cycle_sim.cpp：validate_timing_config、CycStats::to_json |
+### 新增内容
 
-所有延时为可配置的模拟值。当前实现包含每 warp 顺序互锁、I-Cache 命中假设和内存资源预约模型，接口说明见补充册。
+#### 1. 调试器集成（FuncSim）
+- 于功能模拟器核心中引入执行前回调机制（`debug_before`），支持以 SM、Warp、PC 三元组为粒度设置断点与单步执行。
+- 实现可恢复的轮询游标（`debug_resume_sm` / `debug_resume_warp`），确保调试暂停后恢复执行时，当前调度轮内已推进的 Warp 不会被重复执行。
+- 暂停期间 `sync()` 返回 `ERR_OK`，区分"暂停"与"完成"两种终态，便于上层调试器正确解析。
 
-## 正确性修复（含先前修复）
+#### 2. 工具链（Toolchain 1.2.0）
+- **NTCC 编译器**：支持 `.ntcu` 教学语言（类 CUDA C 语法），提供词法分析、递归下降/Pratt 表达式解析、类型与作用域检查、指令降低及单调寄存器分配；可生成 NTAS1 机器码、模块 ABI、源码映射、文本汇编及 listing。
+- **NTASM 汇编器**：基于显式字段的 NTAS1 文本汇编，支持机器码往返验证。
+- **ntsim 原生桥接**：UTF-8 行协议连接 FuncSim / CycleSim，提供内存分配、数据传输、Kernel 启动、断点管理、单步/连续执行及状态查询等原语。
+- **ntrun 运行器**：命令行封装，支持功能/周期双后端一键运行。
+- **ntruntime 主机库**：Python `Session` API，封装 `upload` / `download` / `launch` / `synchronize` 等操作。
+- **NTDB 调试器**：源码级交互式调试，支持行断点、源码步进、指令步进、Warp/Lane 焦点切换、作用域变量查询、寄存器/谓词/SIMT 栈/内存查看及反汇编输出；同时支持批处理模式（命令文件 JSONL 输出）。
 
-以下路径相对于 `NutShellGPU_sim/`，逻辑位置以函数名标示。
+#### 3. 教学示例扩展
+- `examples/toolchain/` 下新增 SAXPY、矩阵乘法、原子直方图三个教学样例（带中文注释），配套双后端回归验证脚本。
+- `examples/toolchain/lenet/` 提供 LeNet 四个 Kernel 的 `.ntcu` 实现，可复用 TinyLeNet 固定权重与输入，支持功能模拟、周期模拟及 CUDA 对照运行。
+- `examples/toolchain/teaching/` 提供 14 组固定种子的回归测试，覆盖空输入、线程块尾部、零长度点积与同桶原子竞争等边界场景。
 
-| ID | 问题与修复 | 文件／逻辑位置 |
-|---|---|---|
-| F01 | 多模块启动不能因同名或相同入口混用模块，按加载的模块身份执行 | func/func_sim.cpp：launch、launch_by_name、fetch_inst |
-| F02 | 支持非零 code_offset，并拒绝非法启动尺寸、入口和超额资源 | func/func_sim.cpp：launch |
-| F03 | 初始驻留之外的 CTA 必须继续补发；未发完不能误判完成 | func/func_sim.cpp：dispatch_pending、sync；func_sim.hpp：is_done |
-| F04 | 静态＋动态共享内存、寄存器、warp 和 CTA 使用统一分配与回收账本 | func/func_sim.cpp：dispatch_cta、sync；timing/cycle_sim.cpp：cta_retire_tick |
-| F05 | 非法／未对齐 PC 和代码越界返回明确错误 | func/func_sim.cpp：fetch_inst |
-| F06 | 可重用屏障按代登记到达状态，同一代每 warp 登记一次 | func/func_sim.cpp：bar_sync；func_sim.hpp：BarrierState |
-| F07 | FP32 算术不再错误地按整数舍入；编译设置保留舍入模式 | isa/ntisa.hpp：round_fp32；func/func_sim.cpp：浮点分支；CMakeLists.txt |
-| F08 | RZ 读取恒零；SHFL 先快照所有源 lane，再提交各 lane 的结果 | func/func_sim.hpp：WarpState::reg；func_sim.cpp：execute_inst、OP_SHFL |
-| F09 | 稀疏页号保留 64 位；跨页访问、复制、clear 的页指针生命周期正确 | func/func_sim.hpp：PageMem |
-| F10 | 禁止重复取同一条未提交指令；在途状态排空后才复用 CTA/warp 槽 | timing/cycle_sim.cpp：fetch_tick、cta_retire_tick |
-| F11 | LDC 的宽度按 ldc_width 解码，不误用通用 mem_width 的对齐检查 | isa/ntisa.hpp：decode |
-| F12 | 每次 run 使用增量预算；超预算失败；占用率按时间累计 | timing/cycle_sim.cpp：run、tick、collect_stats |
-| F13 | flat 解码偏移与 lane 基址互逆，local 地址包含 NSM 身份；宽访存高字与 local/const 路径统一，访问执行边界检查 | func/func_sim.cpp：dispatch_cta、decode_flat、load_mem、store_mem、execute_inst 的 LD/ST 分支 |
-| F14 | 原子读写失败向调用方传播，未实现的原子宽度明确拒绝；CVTA 地址转换不产生访存请求 | func/func_sim.cpp：atom_op；timing/cycle_sim.cpp：collector_tick |
+#### 4. 文档补充
+- 新增第 08 册《Toolchain 使用手册》：体系架构、环境构建、编译/汇编/运行流程、主机 API 及模块 ABI 说明。
+- 新增第 09 册《NTCC 语言与指令集》：语法、内建函数、内联汇编约束及 53 个操作码覆盖范围。
+- 新增第 10 册《NTDB 调试与日志》：调试命令、暂停/步进语义、原生协议、输出格式及故障定位指南。
 
-## 实现范围
+#### 5. NutCC 实验性 C++ Kernel 编译器（社区贡献同步）
+- 同步 Gitee 仓库 `compiler/` 目录（NutCC 0.1.2-test.1，贡献者 WenjunCui）：基于受限 C++17 子集，复用 LLVM Clang 18 / Apple Clang 21 的类型分析生成真实 NTAS1 机器码，可直接在本版本 FuncSim / CycleSim 上执行，提供 O0/O1 两级模式与完整测试门槛。
+- 该编译器与本版本自带的 Python 工具链（NTCC `.ntcu`）相互独立、互不依赖；运行时桥接仅使用模拟器既有接口（`load_code`、`launch`、`run`、`step_one_round`），与 1.2.0 调试钩子兼容。
+- 同步配套设计文档 `docs/superpowers/`。跨平台要求（Clang 版本、Windows WSL 路线）见 `compiler/PORTABILITY.md`。
 
-新增时序机制位于 C++ 模拟器；RTL 文件保留原实现。延迟参数为模拟值。接口和统计字段见第 06、07 册。
+### 缺陷修复
+- **FIND 指令 MSVC 分支计算错误**：`isa/ntisa.hpp` 中 `find_msb()` 的 MSVC 分支误用 `31 - _BitScanReverse` 结果（BSR 返回值本身即最高置位位号，等价于 `31 - clz`），导致 MSVC 编译时 `__find_msb(16)` 错误返回 27（clz 值）而非 4；已改为直接返回 BSR 索引。GCC/Clang 分支公式正确，故该问题仅在 Visual Studio 环境暴露。修复后工具链 40 项回归与模拟器 7 套 C++ 测试全部通过。
+- **ntsim 周期后端预算处理**：修复 `CycleSim::run` 因预算耗尽返回 `ERR_DEADLOCK` 时，ntsim 错误地使用 `s.error.msg`（此时消息为空）导致输出无意义空字符串的问题；现区分 `budget` 与 `completed` 两种停止原因，行为与功能后端一致。
+- **版本号统一**：将分散于各组件中的版本标识（模拟器、工具链、ntsim、ntcc、ntdb、ntrun、ntasm、ntruntime、规格书等）统一修订为 1.2.0，消除 1.1.1 / 1.0.0 混用导致的认知偏差。
+- **冗余文档清理**：删除项目根目录下与 `NutShellGPU_spec/` 内容重复的第 08–10 册旧副本（仍标注 1.0.0 / 1.1.1），统一以 `NutShellGPU_spec/` 为唯一权威文档来源。
+- **入门教程勘误**：修正 README 快速上手中 SAXPY 启动配置示例参数名与 Kernel 形参不一致（误写为 vector_add 的 a/b/out）、调试示例断点早于变量声明导致 `print` 不可用的问题，并补充预期输出与逐命令注释。
 
+---
 
-## 预训练模型跨版本补充实测（2026-09-17）
+## 1.1.0
 
-MLP、CNN、TinyVGG 使用下载的固定权重、相同 NTAS 与同一组官方测试图，每类一张共 10 张。程序时间为进程启动至退出，含装载、初始化、模拟、逐层导出和退出，每项实测一次。全量准确率另在 RTX 4060 上用自写 CUDA 测量，无官方数学计算库。
+### 新增内容
 
-| 模型 | 版本 | 程序总时间 / 秒 | 10 张准确率 | 总模拟周期 | 模拟时间 / 毫秒 |
-|---|---|---:|---:|---:|---:|
-| MLP | 1.0-correctness | 1.833 | 100.0% | 369,940 | 0.369940 |
-| MLP | 1.1 | 664.017 | 100.0% | 113,043,915 | 113.043915 |
-| CNN | 1.0-correctness | 7.346 | 100.0% | 1,224,380 | 1.224380 |
-| CNN | 1.1 | 1149.303 | 100.0% | 192,774,640 | 192.774640 |
-| TinyVGG | 1.0-correctness | 43.971 | 100.0% | 5,433,840 | 5.433840 |
-| TinyVGG | 1.1 | 3775.964 | 100.0% | 501,691,267 | 501.691267 |
+#### 1. 周期级微结构模型（CycleSim）
+基于 1.0 功能语义，引入以下七类时序机制：
+- **T01 到期写回**：发射与操作数收集阶段不提前修改架构状态；指令仅在 `ready_cycle` 到期且获得提交端口后，方执行功能语义并更新寄存器/内存。
+- **T02 指令差异延迟**：搬运、整数、乘法、除法、浮点、SFU、DP、Shuffle、控制流等类别分别配置执行延迟。
+- **T03 依赖互锁**：每 Warp 维护未提交指令互锁，覆盖 RAW、WAW、WAR、谓词、宽寄存器对及控制流依赖。
+- **T04 寄存器组冲突**：GPR 四 Bank 端口竞争、重复源广播及跨收集器轮询仲裁。
+- **T05 执行资源**：延迟与启动间隔分离；有限执行槽、Lane 数吞吐限制及统一提交端口竞争。
+- **T06 内存时序**：扇区合并、Shared Bank 冲突、L1/L2 时序标签、有限 MSHR、NoC 带宽预约、DRAM Bank/行缓冲与总线服务。
+- **T07 配置与统计**：纳秒到周期换算、配置合法性检查、1.1 统计字段扩充及带宽单位修正；新增 `simulated_seconds`（按 `cycles / (core_clock_ghz × 10^9)` 换算）。
 
-| 模型 | 全量 70,000 张 | 官方测试 10,000 张 | 官方测试最差类别召回率 |
-|---|---:|---:|---:|
-| MLP | 91.6914% | 88.29% | 73.50% |
-| CNN | 96.1171% | 92.38% | 78.30% |
-| TinyVGG | 94.5514% | 93.21% | 77.60% |
+#### 2. 程序运行时间测量
+- 新增 `benchmark_process.py`，使用 Python 标准库在进程外测量完整运行时间（含装载、初始化、模拟、逐层导出与退出），记录重复测量、退出码、模拟周期、样本数、平台及文件哈希。
 
-模拟器逐层结果在 atol=rtol=1e-4 内符合独立参考，分类索引一致，CTA 完整完成。“1.0-correctness”是之前整理的仅正确性修复基线，不是上游发布标签。两版时序规则不同，周期差和墙钟差不代表相同模拟精度下的加速。所有延迟为模拟值。
+#### 3. 测试扩展
+- 新增 `t_runtime_v2`、`t_timing_v11`、`t_repairs`、`t_stats_time` 等回归测试。
+- 新增 `model_runner` 及残差/深度可分离网络夹具，支持逐层与独立 NumPy/PyTorch 参考比对。
 
-70,000 张全量含训练数据；模拟器运行 10 张，GPU 分别运行 70,000 与官方测试 10,000 张。原始证据、来源与构建哈希见 PRETRAINED_BENCHMARK.json。
+### 缺陷修复（F01–F14）
+- **F01**：多模块启动按加载的模块身份执行，避免同名或相同入口混用。
+- **F02**：支持非零 `code_offset`，拒绝非法启动尺寸、入口及超额资源。
+- **F03**：初始驻留之外的 CTA 继续补发；未发完不能误判完成。
+- **F04**：静态与动态共享内存、寄存器、Warp 及 CTA 使用统一分配与回收账本。
+- **F05**：非法/未对齐 PC 及代码越界返回明确错误。
+- **F06**：可重用屏障按代登记到达状态，同代每 Warp 仅登记一次。
+- **F07**：FP32 算术不再错误按整数舍入；编译设置保留舍入模式（MSVC `/fp:strict`，GCC/Clang `-frounding-math -ffp-contract=off`）。
+- **F08**：RZ 读取恒零；SHFL 先快照所有源 Lane，再提交各 Lane 结果。
+- **F09**：稀疏页号保留 64 位；跨页访问、复制、clear 的页指针生命周期正确。
+- **F10**：禁止重复取同一条未提交指令；在途状态排空后方复用 CTA/Warp 槽。
+- **F11**：LDC 宽度按 `ldc_width` 解码，不误用通用 `mem_width` 的对齐检查。
+- **F12**：每次 `run` 使用增量预算；超预算失败；占用率按时间累计。
+- **F13**：Flat 解码偏移与 Lane 基址互逆，Local 地址包含 NSM 身份；宽访存高字与 Local/Const 路径统一，访问执行边界检查。
+- **F14**：原子读写失败向调用方传播；未实现的原子宽度明确拒绝；CVTA 地址转换不产生访存请求。
 
-## CUDA 设备执行时间对照
+---
 
-| 模型 | CUDA 官方测试 10000 张准确率 | CUDA 10000 张 GPU 执行时间 / 秒 | CUDA 折算 10 张 / 毫秒 | CUDA 对应 10 张实测 / 毫秒 | 1.1 模拟 10 张 / 毫秒 |
-|---|---:|---:|---:|---:|---:|
-| MLP | 88.29% | 1.560397 | 1.560397 | 1.664000 | 113.043915 |
-| CNN | 92.38% | 4.989463 | 4.989463 | 4.989696 | 192.774640 |
-| TinyVGG | 93.21% | 6.779156 | 6.779156 | 6.815232 | 501.691267 |
+## 1.0.0
 
-CUDA 使用本轮直接循环实现，FP32 FMA、补零布局、累加顺序、各层 grid/block 与模拟器夹具一致，batch=1。不调用官方数学计算库。计时包括前向与 argmax，使用预热后的 CUDA Graph 和 CUDA Event，累加 10000 张执行区间；不包括初始化、编译、数据传输和文件输出。每张测一次，折算 10 张时间 = 10000 张时间 / 1000。“对应 10 张实测”取模拟器使用的相同索引。
-
-此表对齐的是设备计算阶段的计时范围，不是程序端到端时间，也不是相同硬件的测试。实机为 RTX 4060（24 SM、32 线程 warp、每 SM 最多 48 warp）；模拟器为 16 NSM、32 线程 warp、每 NSM 最多 64 warp、1 GHz。实机未限制 SM 数或锁频，缓存、流水线、寄存器分配和访存延迟仍不同。CUDA Graph 提交、事件精度与运行频率会影响实测值。
-
-10000 张预测与参考完全一致，logits 通过 atol=rtol=1e-4 检查。对应模拟器的 10 张，全部层张量最大绝对误差为 0；分类均正确。原始结果见 CUDA_ALIGNED_BENCHMARK.json。此次 GPU 计时不能替代上表的程序总时间。
+### 基础能力
+- **架构规格**：6 册 Markdown 文档（总览与配置、编程模型与 ABI、NTAS1 指令集手册、NSM SIMT 核心微结构、存储系统微结构、模拟器实现契约）。
+- **功能模拟器（FuncSim）**：NTAS1 指令精确执行、SIMT 栈状态机、五级流水线概念模型、CTA 调度与资源管理、分层内存（Global/Local/Shared/Const/Param）及稀疏页存储。
+- **周期模拟器（CycleSim）**：基于 FuncSim 的简化名义延迟模型（1.0 时期），输出 `stats.json`。
+- **RTL**：SystemVerilog 实现（NSM 顶层、SIMT 栈、记分牌、Operand Collector、L1D、NoC、L2、DRAM 控制器及测试平台）。
+- **测试套件**：`t_decode`（解码器单元测试）、`t_saxpy`（端到端正确性）、`t_diverge`（SIMT 栈快照）。
+- **示例**：`examples/tiny_lenet` 提供三层 TinyLeNet 固定权重及逐层测试。

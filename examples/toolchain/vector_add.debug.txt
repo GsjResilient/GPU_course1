@@ -1,0 +1,10 @@
+break 5
+continue
+where
+print i
+print value
+stepi
+where
+delete 5
+continue
+memory 65584 20

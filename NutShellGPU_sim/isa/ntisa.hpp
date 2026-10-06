@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // ntisa.hpp - NTAS1 指令集共享库: 解码器 + 指令语义辅助函数
 // =============================================================================
@@ -1004,8 +1004,8 @@ inline uint32_t find_msb(uint32_t x) { // 最高置位位置; 无则返回 32
     return 31 - (uint32_t)__builtin_clz(x);   // GCC/Clang 内建
 #elif defined(_MSC_VER)
     unsigned long idx;
-    _BitScanReverse(&idx, x);                 // MSVC: BitScanReverse (BSR 指令)
-    return 31 - (uint32_t)idx;
+    _BitScanReverse(&idx, x);                 // MSVC: BSR 直接给出最高置位位置
+    return (uint32_t)idx;                     // 等价 31 - clz, 不能再减一次
 #else
     uint32_t r = 0;
     while (x >>= 1) r++;                      // 软件回退: 逐位移位计数

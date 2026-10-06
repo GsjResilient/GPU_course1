@@ -1,5 +1,19 @@
 # NutCC 0.1.2-test.1
 
+
+<!-- =============================================================================
+NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+Author: Di Zhao, Trae CN
+Contact: zhaodi@ucas.ac.cn
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+            General-Purpose Graphics Processor Architecture,
+            Morgan & Claypool, 2018
+September 2026
+Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+============================================================================= -->
+
+> **注意**：NutCC 是社区贡献的实验性 C++17 子集编译器（输入 `.cpp`）。项目官方 Python 工具链 NTCC 1.2.0 使用 `.ntcu` 教学语言，两者互不依赖。官方工具链文档见 `NutShellGPU_spec/08_Toolchain使用手册.md` 和 `NutShellGPU_spec/09_NTCC语言与指令集.md`。
+
 NutShellGPU 1.10 的实验性 C++ kernel 编译器：复用 Clang 类型分析，生成真实 NTAS1 机器码，在原版 FuncSim / CycleSim 上执行。只新增 `compiler/` 及文档；不使用 NVIDIA 计算库。
 
 这是明确受限的 C++17 子集，**不是完整 C++、CUDA 编译器，也不是 GPU 1.2 或 RTL 验证版本**。分支为 `test/nutcc-v0.1.2`，测试标签为 `nutcc-v0.1.2-test.1`（仅完整门槛通过后创建）。旧版分支和标签保留。编译器贡献者：**WenjunCui**。

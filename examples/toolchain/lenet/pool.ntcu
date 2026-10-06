@@ -1,0 +1,27 @@
+// =============================================================================
+// NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
+// References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+//             General-Purpose Graphics Processor Architecture,
+//             Morgan & Claypool, 2018
+// September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+// =============================================================================
+__global__ void pool(float* input, float* output, int h, int out_h) {
+    int x = threadIdx.x;
+    int y = blockIdx.x;
+    int c = blockIdx.y;
+    int base = (c * h + y * 2) * h + x * 2;
+    float best = input[base];
+    for (int ky = 0; ky < 2; ++ky) {
+        for (int kx = 0; kx < 2; ++kx) {
+            float value = input[base + ky * h + kx];
+            if (value > best) {
+                best = value;
+            }
+        }
+    }
+    int oi = (c * out_h + y) * out_h + x;
+    output[oi] = best;
+}

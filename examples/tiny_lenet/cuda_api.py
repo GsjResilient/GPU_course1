@@ -1,12 +1,13 @@
 # =============================================================================
 # NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-# Version 1.10
-# Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-# Improved by: Tonghui Ming
-# References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
+# Author: Di Zhao, Trae CN
+# Contact: zhaodi@ucas.ac.cn
+# References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+#             General-Purpose Graphics Processor Architecture,
+#             Morgan & Claypool, 2018
 # September 2026
+# Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 # =============================================================================
-
 """CUDA Driver/NVRTC 接口。NVRTC_LIBRARY 可指定编译器动态库的位置。"""
 import ctypes as C
 import ctypes.util

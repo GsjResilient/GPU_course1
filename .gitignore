@@ -1,6 +1,11 @@
 build/
+out/
+runs/
+logs/
 __pycache__/
-*.exe
-*.pdb
 *.pyc
+*.exe
+*.o
+*.obj
+*.pdb
 stats.json

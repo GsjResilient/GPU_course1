@@ -1,12 +1,13 @@
 # =============================================================================
 # NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-# Version 1.10
-# Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-# Improved by: Tonghui Ming
-# References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
+# Author: Di Zhao, Trae CN
+# Contact: zhaodi@ucas.ac.cn
+# References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+#             General-Purpose Graphics Processor Architecture,
+#             Morgan & Claypool, 2018
 # September 2026
+# Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 # =============================================================================
-
 # NutShellGPU 1.1: 构造残差/深度可分离 NTAS1 夹具及独立参考。
 # PyTorch 只用于参考输出, 不在模拟器进程中执行。
 """Generate pure NTAS1 model fixtures and independent PyTorch CPU references."""

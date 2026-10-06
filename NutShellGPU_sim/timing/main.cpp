@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // main.cpp - 周期级模拟器主入口 (S3 阶段) ★★★ 性能分析入口
 // -----------------------------------------------------------------------------
@@ -232,9 +232,8 @@ static void test_stats_format() {
 // 教材引用: 第 3 章 §3.3 Three-Loop Approximation (p.35) — 周期模拟器主入口; §5.3 Validation (p.129) SAXPY 端到端验证容差 0.001; §5.1 (p.119) 输出性能指标
 int main(int argc, char** argv) {
     std::cout << "NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education\n"
-              << "Version 1.10\n"
-              << "Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN\n"
-              << "Improved by: Tonghui Ming\n"
+              << "Author: Di Zhao, Trae CN\n"
+              << "Contact: zhaodi@ucas.ac.cn\n"
               << "References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018\n"
               << "September 2026\n";
     if (argc > 1 && std::string(argv[1]) == "--test") {

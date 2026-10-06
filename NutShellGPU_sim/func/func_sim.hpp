@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // func_sim.hpp - 功能模拟器头文件 (S2, 无时序模型)
 // =============================================================================
@@ -26,6 +26,7 @@
 // 教材引用: 第 3 章 §3.1 One-Loop Approximation (p.22) — 本文件定义功能模拟器的数据结构, 对应教材单循环调度模型; WarpState/NSMState 直接服务于 §3.1.1 SIMT 掩码、§3.1.2 寄存器堆、§3.1.4 重汇聚栈等概念
 // =============================================================================
 #pragma once
+#include <functional>
 #include "../isa/ntisa.hpp"
 #include <vector>
 #include <string>
@@ -483,6 +484,11 @@ struct StackSnap {
 // =============================================================================
 class FuncSim {
 public:
+    // 1.2.0 debugger: optional pre-execution stop with resumable round cursor.
+    // Returning true stops the whole functional scheduler before this instruction.
+    std::function<bool(int, int, uint64_t)> debug_before;
+    bool debug_paused = false;
+    int debug_resume_sm = 0, debug_resume_warp = 0;
     Config cfg;                     // 全局配置
 
     // ---- 内存空间 ----

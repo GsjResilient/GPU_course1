@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // t_diverge.cpp - SIMT 发散栈快照测试 (03 册 §4) ★★★ SIMT 核心
 // -----------------------------------------------------------------------------
@@ -459,9 +459,8 @@ void test_shared_memory() {
 // 教材引用: 第 5 章 §5.4 Methodology (p.131) — 栈快照验证方法 enable_snaps 记录栈状态; §5.3 Validation (p.129) SIMT 行为验证
 int main() {
     std::cout << "NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education\n"
-              << "Version 1.10\n"
-              << "Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN\n"
-              << "Improved by: Tonghui Ming\n"
+              << "Author: Di Zhao, Trae CN\n"
+              << "Contact: zhaodi@ucas.ac.cn\n"
               << "References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018\n"
               << "September 2026\n";
     std::cout << "===== t_diverge =====" << std::endl;

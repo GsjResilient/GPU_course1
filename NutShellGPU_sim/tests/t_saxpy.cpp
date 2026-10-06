@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.10
-// Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
 //             General-Purpose Graphics Processor Architecture,
 //             Morgan & Claypool, 2018
 // September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
 // =============================================================================
 // t_saxpy.cpp - SAXPY 端到端测试 (01 册 §9) ★★ 功能验证
 // -----------------------------------------------------------------------------
@@ -315,9 +315,8 @@ void test_saxpy_partial_warp() {
 // 教材引用: 第 5 章 §5.4 Methodology (p.131) — 多场景测试覆盖 (单 warp/多 CTA/部分 warp); §5.3 Validation (p.129) 端到端验证
 int main() {
     std::cout << "NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education\n"
-              << "Version 1.10\n"
-              << "Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN\n"
-              << "Improved by: Tonghui Ming\n"
+              << "Author: Di Zhao, Trae CN\n"
+              << "Contact: zhaodi@ucas.ac.cn\n"
               << "References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018\n"
               << "September 2026\n";
     std::cout << "===== t_saxpy =====" << std::endl;

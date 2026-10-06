@@ -1,0 +1,40 @@
+// =============================================================================
+// NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
+// References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+//             General-Purpose Graphics Processor Architecture,
+//             Morgan & Claypool, 2018
+// September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+// =============================================================================
+__global__ void conv(float* input, float* weight, float* bias, float* output, int ci, int h) {
+    int x = threadIdx.x;
+    int y = blockIdx.x;
+    int co = blockIdx.y;
+    float sum = bias[co];
+    for (int c = 0; c < ci; ++c) {
+        for (int ky = 0; ky < 3; ++ky) {
+            int iy = y + ky - 1;
+            for (int kx = 0; kx < 3; ++kx) {
+                int ix = x + kx - 1;
+                if (iy >= 0) {
+                    if (iy < h) {
+                        if (ix >= 0) {
+                            if (ix < h) {
+                                int si = (c * h + iy) * h + ix;
+                                int wi = ((co * ci + c) * 3 + ky) * 3 + kx;
+                                sum = fmaf(input[si], weight[wi], sum);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (sum < 0.0f) {
+        sum = 0.0f;
+    }
+    int oi = (co * h + y) * h + x;
+    output[oi] = sum;
+}

@@ -1,11 +1,15 @@
 > **1.1 阅读说明：** 本册列出原架构参数与接口。周期模拟器的已实现行为、模拟延时和简化边界以 [06_1.1时序与修复说明](06_1.1时序与修复说明.md) 为准。
 
-NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
-Version 1.10  
-Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
-Improved by: Tonghui Ming  
-References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
+<!-- =============================================================================
+NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+Author: Di Zhao, Trae CN
+Contact: zhaodi@ucas.ac.cn
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+            General-Purpose Graphics Processor Architecture,
+            Morgan & Claypool, 2018
 September 2026
+Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+============================================================================= -->
 
 # NTAS1 指令集架构手册（第 2 册）
 

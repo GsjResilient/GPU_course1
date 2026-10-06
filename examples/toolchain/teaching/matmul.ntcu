@@ -1,0 +1,27 @@
+// =============================================================================
+// NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
+// References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+//             General-Purpose Graphics Processor Architecture,
+//             Morgan & Claypool, 2018
+// September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+// =============================================================================
+// 计算目标：稠密矩阵乘法 C = A * B。
+// A 为 m×k，B 为 k×n，C 为 m×n，均以行优先顺序存储 FP32 元素。
+// 使用二维线程布局，每个线程计算 C 的一个元素。
+__global__ void matmul(float* a, float* b, float* c, uint m, uint n, uint k) {
+    // x 方向对应输出列，y 方向对应输出行。
+    uint col = blockIdx.x * blockDim.x + threadIdx.x;
+    uint row = blockIdx.y * blockDim.y + threadIdx.y;
+    // 屏蔽矩阵边缘超出行数或列数的线程。
+    if (row < m && col < n) {
+        float sum = 0.0f;
+        // 对 A 的当前行与 B 的当前列求点积；k=0 时结果为零。
+        for (uint t = 0u; t < k; ++t) {
+            sum += a[row * k + t] * b[t * n + col];
+        }
+        c[row * n + col] = sum;
+    }
+}

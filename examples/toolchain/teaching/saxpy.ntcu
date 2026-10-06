@@ -1,0 +1,21 @@
+// =============================================================================
+// NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
+// References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+//             General-Purpose Graphics Processor Architecture,
+//             Morgan & Claypool, 2018
+// September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+// =============================================================================
+// 计算目标：SAXPY 向量运算，out[i] = a * x[i] + y[i]。
+// 输入为两个 FP32 向量和标量 a；每个线程计算一个输出元素。
+__global__ void saxpy(float* x, float* y, float* out, float a, uint n) {
+    // 根据线程块编号和块内线程编号，计算一维全局索引。
+    uint i = blockIdx.x * blockDim.x + threadIdx.x;
+    // 最后一个线程块可能包含多余线程，只处理有效元素。
+    if (i < n) {
+        // 融合乘加只在最终结果处进行一次 FP32 舍入。
+        out[i] = fmaf(a, x[i], y[i]);
+    }
+}

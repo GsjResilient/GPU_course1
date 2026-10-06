@@ -1,0 +1,31 @@
+// =============================================================================
+// NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
+// Author: Di Zhao, Trae CN
+// Contact: zhaodi@ucas.ac.cn
+// References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers,
+//             General-Purpose Graphics Processor Architecture,
+//             Morgan & Claypool, 2018
+// September 2026
+// Improved by: 明同辉（26秋），王一锴（26秋），崔文君（26秋）
+// =============================================================================
+// 计算目标：统计无符号整数低 4 位的分布，输出 16 个桶的计数。
+// 每个线程处理一个输入元素；运行前由主机将 bins[0..15] 初始化为零。
+// 多个线程可同时命中同一桶，使用 atomicAdd 避免并发更新丢失。
+__global__ void histogram(uint* input, uint* bins, uint n) {
+    uint i = blockIdx.x * blockDim.x + threadIdx.x;
+    uint value = 0u;
+    // 尾部多余线程不读取输入。
+    if (i < n) {
+        value = input[i];
+    }
+    // 低 4 位给出桶编号；每个 uint 为 4 字节。
+    uint offset = (value & 15u) * 4u;
+    uint* bucket = bins;
+    // 通过受约束内联汇编计算桶地址：+l 是读写指针，r 是偏移量。
+    // 此处加法使用地址低 32 位；主机脚本检查整个分配区间低于 2^32。
+    asm("IADD %0, %0, %1, 0, 0" : "+l"(bucket) : "r"(offset));
+    // 仅有效线程递增桶；原子操作保证每个输入恰好计数一次。
+    if (i < n) {
+        atomicAdd(bucket, 1u);
+    }
+}
