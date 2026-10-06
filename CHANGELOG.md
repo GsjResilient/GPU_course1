@@ -10,7 +10,7 @@ References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpos
 September 2026
 ============================================================================= -->
 
-## 版本演进概览
+## 版本改进概览
 
 - **1.1 CycleSim 周期模拟器**（作者：明同辉，26秋）：新增 T01–T07 时序机制（到期写回、指令差异延迟、依赖互锁、寄存器 Bank 冲突、内存时序等），性能从"跑对"变为"可量化"
 - **1.2 调试器 + 官方工具链**（作者：王一锴，26秋）：模拟器增加调试钩子，NTDB 支持源码级断点/单步/Lane 切换/SIMT 栈观察；补齐 NTCC、NTASM、ntrun、ntruntime 完整文档
