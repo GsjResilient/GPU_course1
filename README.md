@@ -1,6 +1,3 @@
-# NutShellGPU 1.2.0
-
-
 <!-- =============================================================================
 NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
 Version 1.3
