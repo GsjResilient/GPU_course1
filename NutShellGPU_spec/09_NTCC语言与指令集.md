@@ -1,14 +1,13 @@
 # 第 09 册：NTCC 语言与指令集
 
 
-<!-- =============================================================================
-NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-Version 1.3
-Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)
-References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
-September 2026
-============================================================================= -->
+NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
+Version 1.3  
+Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
+Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)  
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
+September 2026  
+
 
 > **注意**：本册描述官方 Python 工具链的 `.ntcu` 教学语言（NTCC 1.2.0）。`compiler/` 目录下的 **NutCC** 使用受限 C++17 子集，是另一条独立编译路线，语言范围不同，详见 `compiler/README.md`。
 

@@ -1,14 +1,13 @@
 # 第 08 册：Toolchain 使用手册
 
 
-<!-- =============================================================================
-NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-Version 1.3
-Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)
-References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
-September 2026
-============================================================================= -->
+NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
+Version 1.3  
+Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
+Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)  
+References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
+September 2026  
+
 
 > **注意**：本册描述官方 Python 工具链 NTCC 1.2.0（输入 `.ntcu` 教学语言）。`compiler/` 目录下的 **NutCC** 是独立的社区贡献 C++17 子集编译器，语言子集、构建方式和依赖均不同，详见 `compiler/README.md`。
 
