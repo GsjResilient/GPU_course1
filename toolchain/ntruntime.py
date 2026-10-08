@@ -13,6 +13,9 @@ class Session:
     def __init__(self, module, backend='func', executable=None):
         module = Path(module).resolve()
         self.meta = json.loads(module.read_text(encoding='utf-8'))
+        self.modules = {0: self.meta}
+        self.module_paths = {str(module): 0}
+        self.selected_module = 0
         if self.meta['format'] != 'NTMODULE-1' or self.meta['isa'] != 'NTAS1':
             raise ValueError('unsupported module format/ISA')
         code = module.parent / self.meta['code_file']
@@ -45,13 +48,45 @@ class Session:
 
     def upload(self, data):
         address = self.malloc(len(data))
-        self.command(f'write {address} {data.hex()}')
+        self.write(address, data)
         return address
+
+    def write(self, address, data):
+        """Update an existing allocation without changing its address."""
+        return self.command(f'write {address} {bytes(data).hex() or "-"}')
+
+    def load_module(self, module):
+        """Load and verify another NTMODULE-1; retain all device allocations."""
+        module = Path(module).resolve()
+        if str(module) in self.module_paths:
+            return self.module_paths[str(module)]
+        meta = json.loads(module.read_text(encoding='utf-8'))
+        if meta['format'] != 'NTMODULE-1' or meta['isa'] != 'NTAS1':
+            raise ValueError('unsupported module format/ISA')
+        code = module.parent / meta['code_file']
+        if hashlib.sha256(code.read_bytes()).hexdigest() != meta['code_sha256']:
+            raise ValueError('code hash does not match debug/module metadata')
+        # Hex-encode paths so whitespace and Unicode survive the text protocol.
+        identifier = self.command(f'modulehex {str(code).encode("utf-8").hex()} {meta["registers"]} {meta["parameter_size"]}')['module']
+        self.modules[identifier] = meta
+        self.module_paths[str(module)] = identifier
+        return identifier
+
+    def select_module(self, identifier):
+        if identifier not in self.modules:
+            raise ValueError('unknown module')
+        self.command(f'select {identifier}')
+        self.selected_module = identifier
+        self.meta = self.modules[identifier]
 
     def download(self, address, size):
         return bytes.fromhex(self.command(f'read {address} {size}')['hex'])
 
-    def launch(self, grid, block, arguments):
+    def launch(self, grid, block, arguments, dynamic_smem=0, module=None):
+        if module is not None:
+            self.select_module(module)
+        if type(dynamic_smem) is not int or dynamic_smem < 0:
+            raise ValueError('dynamic_smem must be a nonnegative integer')
         expected = {p['name'] for p in self.meta['parameters']}
         if set(arguments) != expected:
             raise ValueError(f'kernel arguments must be {sorted(expected)}')
@@ -65,6 +100,8 @@ class Session:
                 raise ValueError('dimensions must contain one to three positive integers')
             return dims + [1] * (3-len(dims))
         dims = dimensions(grid) + dimensions(block)
+        if dynamic_smem:
+            return self.command('launch4 '+' '.join(map(str,dims))+' '+str(dynamic_smem)+' '+(params.hex() or '-'))
         return self.command('launch3 '+' '.join(map(str,dims))+' '+(params.hex() or '-'))
 
     def synchronize(self, budget=10000000):
