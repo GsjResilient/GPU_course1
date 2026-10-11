@@ -47,10 +47,18 @@ int main(int argc,char** argv) {
         if(argc!=5)throw std::runtime_error("usage: ntsim code.ntas registers parameter_bytes func|cycle");
         bool timing=std::string(argv[4])=="cycle";
         if(!timing && std::string(argv[4])!="func")throw std::runtime_error("unknown backend");
-        auto cycle=std::make_unique<CycleSim>();
-        auto& s=cycle->func;
-        cycle->cfg.n_clusters=1;cycle->cfg.n_cores_per_cluster=1;s.cfg=cycle->cfg;
-        cycle->init();
+        std::unique_ptr<CycleSim> cycle;
+        std::unique_ptr<FuncSim> functional;
+        if(timing) {
+            cycle=std::make_unique<CycleSim>();
+            cycle->cfg.n_clusters=1;cycle->cfg.n_cores_per_cluster=1;
+            cycle->func.cfg=cycle->cfg;cycle->init();
+        } else {
+            functional=std::make_unique<FuncSim>();
+            functional->cfg.n_clusters=1;functional->cfg.n_cores_per_cluster=1;
+            functional->init();
+        }
+        auto& s=timing?cycle->func:*functional;
         std::ifstream f(argv[1],std::ios::binary);
         std::vector<char> raw((std::istreambuf_iterator<char>(f)),{});
         if(raw.empty()||raw.size()%8)throw std::runtime_error("invalid instruction file");
@@ -62,6 +70,9 @@ int main(int argc,char** argv) {
         std::set<uint64_t> breaks;
         std::tuple<int,int,uint64_t> stopped{-1,-1,0};
         bool at_stop=false, launched=false;
+        int selected_module=0;
+        std::vector<size_t> code_sizes{raw.size()};
+        std::vector<int> parameter_sizes{param_bytes};
         std::vector<std::pair<uint64_t,uint64_t>> allocations;
         auto check_range=[&](uint64_t p,uint64_t n){
             if(n>16*1024*1024)throw std::runtime_error("transfer exceeds 16 MiB");
@@ -74,26 +85,50 @@ int main(int argc,char** argv) {
             try {
                 std::istringstream in(line);auto cmd=arg<std::string>(in);
                 if(cmd=="quit")break;
-                if(cmd=="alloc") {
+                if(cmd=="module"||cmd=="modulehex") {
+                    if(launched&&!s.is_done())throw std::runtime_error("cannot load module during execution");
+                    auto path=arg<std::string>(in);
+                    if(cmd=="modulehex"){auto decoded=unhex(path);path.assign(decoded.begin(),decoded.end());}
+                    auto nr=arg<int>(in),np=arg<int>(in);
+                    if(nr<0||nr>254||np<0||np>4096)throw std::runtime_error("invalid kernel resources");
+                    std::ifstream file(path,std::ios::binary);
+                    std::vector<char> bytes((std::istreambuf_iterator<char>(file)),{});
+                    if(bytes.empty()||bytes.size()%8)throw std::runtime_error("invalid instruction file");
+                    std::vector<uint64_t> words(bytes.size()/8);std::memcpy(words.data(),bytes.data(),bytes.size());
+                    for(size_t i=0;i<words.size();++i){Inst ins;if(decode(words[i],i*8,ins))throw std::runtime_error("invalid instruction encoding");}
+                    KernelInfo info;info.name="kernel";info.regs_u32=nr;info.param_size=np;
+                    s.load_code(words,info);code_sizes.push_back(bytes.size());parameter_sizes.push_back(np);
+                    std::cout<<"{\"ok\":true,\"module\":"<<s.modules.size()-1<<"}";
+                } else if(cmd=="select") {
+                    if(launched&&!s.is_done())throw std::runtime_error("cannot select module during execution");
+                    auto id=arg<int>(in);
+                    if(id<0||size_t(id)>=s.modules.size())throw std::runtime_error("unknown module");
+                    selected_module=id;param_bytes=parameter_sizes[id];
+                    breaks.clear();at_stop=false;
+                    std::cout<<"{\"ok\":true}";
+                } else if(cmd=="alloc") {
                     auto n=arg<uint64_t>(in);if(!n||n>16*1024*1024)throw std::runtime_error("allocation size must be 1..16 MiB");
                     auto p=s.malloc(n);allocations.push_back({p,n});std::cout<<"{\"ok\":true,\"address\":"<<p<<"}";
                 } else if(cmd=="write") {
                     auto p=arg<uint64_t>(in);auto data=unhex(arg<std::string>(in));check_range(p,data.size());s.memcpy_h2d(p,data.data(),data.size());std::cout<<"{\"ok\":true}";
                 } else if(cmd=="read") {
                     auto p=arg<uint64_t>(in),n=arg<uint64_t>(in);check_range(p,n);std::vector<uint8_t> v(n);s.memcpy_d2h(v.data(),p,n);std::cout<<"{\"ok\":true,\"hex\":"<<quote(hex(v))<<"}";
-                } else if(cmd=="launch"||cmd=="launch3") {
-                    if(launched)throw std::runtime_error("one launch per session; create another session");
+                } else if(cmd=="launch"||cmd=="launch3"||cmd=="launch4") {
+                    if(launched&&!s.is_done())throw std::runtime_error("kernel is still running");
                     auto gx=arg<uint32_t>(in);uint32_t gy=1,gz=1,dx=1,dy=1,dz=1;
-                    if(cmd=="launch3"){gy=arg<uint32_t>(in);gz=arg<uint32_t>(in);}
+                    if(cmd!="launch"){gy=arg<uint32_t>(in);gz=arg<uint32_t>(in);}
                     dx=arg<uint32_t>(in);
-                    if(cmd=="launch3"){dy=arg<uint32_t>(in);dz=arg<uint32_t>(in);}
+                    if(cmd!="launch"){dy=arg<uint32_t>(in);dz=arg<uint32_t>(in);}
+                    uint32_t dynamic_smem=cmd=="launch4"?arg<uint32_t>(in):0;
                     auto params=unhex(arg<std::string>(in));
                     if(!gx||!gy||!gz||gx>65535||gy>65535||gz>65535||uint64_t(gx)*gy*gz>65535||!dx||!dy||!dz||dx>1024||dy>1024||dz>1024||uint64_t(dx)*dy*dz>1024||params.size()!=size_t(param_bytes))throw std::runtime_error("invalid launch dimensions/parameters");
-                    if(!s.launch_by_name("kernel",gx,gy,gz,dx,dy,dz,0,params))throw std::runtime_error("launch: "+s.error.msg);
-                    launched=true;std::cout<<"{\"ok\":true}";
+                    if(!s.launch(0,gx,gy,gz,dx,dy,dz,dynamic_smem,params,selected_module))throw std::runtime_error("launch: "+s.error.msg);
+                    launched=true;at_stop=false;s.debug_paused=false;
+                    s.debug_resume_sm=0;s.debug_resume_warp=0;
+                    std::cout<<"{\"ok\":true}";
                 } else if(cmd=="break"||cmd=="delete") {
                     if(timing)throw std::runtime_error("debug commands require func backend");
-                    auto pc=arg<uint64_t>(in);if(pc%8||pc>=raw.size())throw std::runtime_error("breakpoint outside code");
+                    auto pc=arg<uint64_t>(in);if(pc%8||pc>=code_sizes[selected_module])throw std::runtime_error("breakpoint outside code");
                     if(cmd=="break")breaks.insert(pc);else breaks.erase(pc);std::cout<<"{\"ok\":true}";
                 } else if(cmd=="run"||cmd=="step") {
                     if(!launched)throw std::runtime_error("kernel not launched");

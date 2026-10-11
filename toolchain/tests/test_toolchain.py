@@ -145,10 +145,12 @@ class ToolchainTests(unittest.TestCase):
             self.assertEqual(s.synchronize()['reason'],'completed')
 
     def test_breakpoint_inspection_and_resume(self):
-        path=self.module((EXAMPLES/'saxpy.ntcu').read_text())
+        source=(EXAMPLES/'saxpy.ntcu').read_text()
+        output_line=next(i for i,text in enumerate(source.splitlines(),1) if 'y[i] = value' in text)
+        path=self.module(source)
         with Session(path) as s:
             buffers=prepare(s,json.loads((EXAMPLES/'saxpy.launch.json').read_text()))
-            d=Debugger(s);d.breakpoint(5)
+            d=Debugger(s);d.breakpoint(output_line)
             self.assertEqual(d.run()['reason'],'breakpoint')
             self.assertEqual(d.variable('value')['value'],12.5)
             d.lane=4
@@ -156,7 +158,7 @@ class ToolchainTests(unittest.TestCase):
             self.assertEqual(d.variable('value')['value'],62.5)
             self.assertTrue(d.variable('value')['active'])
             self.assertEqual(collect(s,buffers)['y'],[10,20,30,40,50])
-            d.command('delete 5')
+            d.command(f'delete {output_line}')
             self.assertEqual(d.run()['reason'],'completed')
             self.assertEqual(collect(s,buffers)['y'],[12.5,25,37.5,50,62.5])
 
@@ -274,10 +276,12 @@ class ToolchainTests(unittest.TestCase):
             self.assertEqual(event['line'],2)
 
     def test_inactive_lane_variable_is_unavailable(self):
-        module=self.module((EXAMPLES/'saxpy.ntcu').read_text())
+        source=(EXAMPLES/'saxpy.ntcu').read_text()
+        output_line=next(i for i,text in enumerate(source.splitlines(),1) if 'y[i] = value' in text)
+        module=self.module(source)
         with Session(module) as s:
             prepare(s,json.loads((EXAMPLES/'saxpy.launch.json').read_text()))
-            d=Debugger(s);d.breakpoint(5);d.run();d.lane=9
+            d=Debugger(s);d.breakpoint(output_line);d.run();d.lane=9
             with self.assertRaises(ValueError):d.variable('value')
 
     def test_authorship_and_module_metadata(self):
