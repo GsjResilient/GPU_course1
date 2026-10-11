@@ -1,4 +1,4 @@
-"""Host runtime 1.2.0: allocate, copy, launch and synchronize NTCC kernels."""
+"""Host runtime 1.4.0: allocate, copy, launch and synchronize NTCC kernels."""
 import hashlib
 import json
 import os
@@ -134,9 +134,9 @@ def prepare(session, config):
 
 # =============================================================================
 # NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-# Version 1.3
+# Version 1.4
 # Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-# Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)
+# Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)，Guiyi He (26F)
 # References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
 # September 2026
 # =============================================================================

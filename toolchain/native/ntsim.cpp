@@ -1,12 +1,12 @@
 // =============================================================================
 // NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education
-// Version 1.3
+// Version 1.4
 // Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN
-// Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)
+// Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)，Guiyi He (26F)
 // References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018
 // September 2026
 // =============================================================================
-// NT runtime/debug transport 1.2.0, using the independent simulator 1.2.0.
+// NT runtime/debug transport 1.4.0, using the independent simulator 1.4.0.
 #include "func/func_sim.hpp"
 #include "timing/cycle_sim.hpp"
 #include <fstream>
@@ -43,7 +43,7 @@ template<class T> static T arg(std::istringstream& in) {
 }
 int main(int argc,char** argv) {
     try {
-        if(argc==2 && std::string(argv[1])=="--version") {std::cout<<"ntsim 1.2.0; simulator 1.2.0\n";return 0;}
+        if(argc==2 && std::string(argv[1])=="--version") {std::cout<<"ntsim 1.4.0; simulator 1.4.0\n";return 0;}
         if(argc!=5)throw std::runtime_error("usage: ntsim code.ntas registers parameter_bytes func|cycle");
         bool timing=std::string(argv[4])=="cycle";
         if(!timing && std::string(argv[4])!="func")throw std::runtime_error("unknown backend");
@@ -79,7 +79,7 @@ int main(int argc,char** argv) {
             for(auto a:allocations)if(p>=a.first&&p-a.first<=a.second&&n<=a.second-(p-a.first))return;
             throw std::runtime_error("host transfer outside allocation");
         };
-        std::cout<<"{\"ok\":true,\"protocol\":1,\"version\":\"1.2.0\",\"simulator\":\"1.2.0\"}"<<std::endl;
+        std::cout<<"{\"ok\":true,\"protocol\":1,\"version\":\"1.4.0\",\"simulator\":\"1.4.0\"}"<<std::endl;
         std::string line;
         while(std::getline(std::cin,line)) {
             try {

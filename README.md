@@ -1,7 +1,7 @@
 NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
-Version 1.3  
+Version 1.4  
 Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
-Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)  
+Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)，Guiyi He (26F)  
 References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
 September 2026  
 
@@ -15,8 +15,9 @@ NutShellGPU 提供一套完整的"软件 + 硬件"教学平台，帮助学生理
 - **1.1 CycleSim 周期模拟器**（作者：明同辉，26秋）：新增 T01–T07 时序机制（到期写回、指令差异延迟、依赖互锁、寄存器 Bank 冲突、内存时序等），性能从"跑对"变为"可量化"
 - **1.2 调试器 + 官方工具链**（作者：王一锴，26秋）：模拟器增加调试钩子，NTDB 支持源码级断点/单步/Lane 切换/SIMT 栈观察；补齐 NTCC、NTASM、ntrun、ntruntime 完整文档
 - **1.3 NutCC**（作者：崔文君，26秋）：a .cpp compatible compiler on LLVM Clang 18.1.x 和 Apple Clang 21.0.0
+- **1.4 多模块会话复用与直接初始化**（作者：何贵意，26秋）：ntsim 功能后端直接初始化 FuncSim；Session 支持同一会话多次启动内核、加载多模块并按身份切换、原地写入已有分配、动态共享内存；原有构造与启动参数保持兼容
 
-主线：**1.1 证明性能可测 → 1.2 让学生能自己写 kernel 并源码级调试 → 1.3 引入真实 C++ 语法编译路线**。详细变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+主线：**1.1 证明性能可测 → 1.2 让学生能自己写 kernel 并源码级调试 → 1.3 引入真实 C++ 语法编译路线 → 1.4 运行库能力补齐（会话复用 / 多模块 / 直接初始化）**。详细变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 1. 项目组成
 

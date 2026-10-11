@@ -2,11 +2,11 @@
 
 
 NutShellGPU: GPU Hardware Emulator for Education & GPU Simulator for Education  
-Version 1.3  
+Version 1.4  
 Author: Di Zhao (zhaodi@ucas.ac.cn), Trae CN  
-Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)  
+Improved by: Tonghui Ming (26F)，Yikai Wang (26F)，Wenjun Cui (26F)，Guiyi He (26F)  
 References: Tor M. Aamodt, Wilson W. Lun Fung, Timothy G. Rogers, General-Purpose Graphics Processor Architecture, Morgan & Claypool, 2018  
-September 2026  
+September 2026
 
 
 ## 版本改进概览
@@ -14,8 +14,45 @@ September 2026
 - **1.1 CycleSim 周期模拟器**（作者：明同辉，26秋）：新增 T01–T07 时序机制（到期写回、指令差异延迟、依赖互锁、寄存器 Bank 冲突、内存时序等），性能从"跑对"变为"可量化"
 - **1.2 调试器 + 官方工具链**（作者：王一锴，26秋）：模拟器增加调试钩子，NTDB 支持源码级断点/单步/Lane 切换/SIMT 栈观察；补齐 NTCC、NTASM、ntrun、ntruntime 完整文档
 - **1.3 NutCC**（作者：崔文君，26秋）：a .cpp compatible compiler on LLVM Clang 18.1.x 和 Apple Clang 21.0.0
+- **1.4 多模块会话复用与直接初始化**（作者：何贵意，26秋）：ntsim 功能后端直接初始化 FuncSim；Session 支持同一会话多次启动内核、加载多模块并按身份切换、原地写入已有分配、动态共享内存；原有构造与启动参数保持兼容
 
-主线：**1.1 证明性能可测 → 1.2 让学生能自己写 kernel 并源码级调试 → 1.3 引入真实 C++ 语法编译路线**。
+主线：**1.1 证明性能可测 → 1.2 让学生能自己写 kernel 并源码级调试 → 1.3 引入真实 C++ 语法编译路线 → 1.4 运行库能力补齐（会话复用 / 多模块 / 直接初始化）**。
+
+---
+
+## 1.4.0
+
+### 新增内容
+
+#### 1. ntsim：功能后端直接初始化 FuncSim
+- 原 `ntsim` 无论功能还是周期后端都先构造 `CycleSim`，再借用其内嵌的 `func`。1.4 起功能后端直接构造 `FuncSim`，省去周期模型的配置与初始化开销；周期后端行为不变，继续使用既有 `CycleSim` 与计时配置。
+
+#### 2. 多模块加载与按身份启动
+- 原生协议新增 `module` / `modulehex` 命令：在已有会话中加载额外的 NTAS1 模块，返回模块身份（索引）。路径经 hex 编码传输，兼容含空格或 Unicode 的路径。
+- 新增 `select` 命令：切换当前活动模块；断点集合与 `at_stop` 游标在切换时重置，避免跨模块误用。
+- `launch` 改为按 `selected_module` 启动内核（`s.launch(0, gx, gy, gz, dx, dy, dz, dynamic_smem, params, selected_module)`），不再依赖 `launch_by_name`。
+
+#### 3. 会话复用：同一会话可多次启动内核
+- 取消"一次会话只能 launch 一次"的限制。内核执行完成（`is_done()`）后可再次 `launch`；执行未完成时拒绝重复启动或加载/切换模块。
+- 重复 launch 时重置 `at_stop`、`debug_paused` 及 `debug_resume_sm/warp`，确保每次启动从干净状态开始；因预算耗尽暂停的任务仍可继续 `run` 恢复执行。
+
+#### 4. 动态共享内存（`launch4`）
+- 原生协议新增 `launch4` 命令，在 grid/block 维度之后携带 `dynamic_smem` 参数，透传给 `FuncSim::launch` 的 `dyn_smem`。
+- `ntruntime.Session.launch` 新增 `dynamic_smem` 形参（非负整数），为真时走 `launch4`，否则沿用 `launch3`。
+
+#### 5. 原地写入已有分配（`Session.write`）
+- `ntruntime.Session` 新增 `write(address, data)` 方法，在不改变设备地址的前提下更新已有缓冲区内容；`upload` 内部改用 `write`。
+- 原生 `write` 命令仍校验地址范围必须落在已分配区间内，越界写入返回错误。
+
+#### 6. 兼容性
+- 原有 `Session(module, backend)` 构造方式与 `launch(grid, block, arguments)` 调用签名保持兼容：新增参数均带默认值，老代码无需改动。
+- 断点行号由 `test_toolchain.py` 动态定位 `y[i] = value` 所在行，不再硬编码第 5 行。
+
+#### 7. 回归测试
+- 新增 `toolchain/tests/test_session_reuse.py`，覆盖：双后端下重复启动 / 模块切换 / 原地写入 / 动态共享内存；执行中拒绝重复 launch 与模块操作；预算耗尽后可恢复；模块切换后调试器仍可断点与恢复。
+
+### 缺陷修复
+- **断点越界检查**：`break`/`delete` 的代码上界由全局 `raw.size()` 改为 `code_sizes[selected_module]`，切换到更短模块后不再误判断点越界。
 
 ---
 
