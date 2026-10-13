@@ -1,0 +1,16 @@
+// One lane selects the class of one image after the logits were computed in parallel.
+__global__ void argmax(float* input, int* output, int samples) {
+    int n = blockIdx.x * blockDim.x + threadIdx.x;
+    if (n < samples) {
+        float best = input[n * 10];
+        int best_index = 0;
+        for (int i = 1; i < 10; ++i) {
+            float value = input[n * 10 + i];
+            if (value > best) {
+                best = value;
+                best_index = i;
+            }
+        }
+        output[n] = best_index;
+    }
+}

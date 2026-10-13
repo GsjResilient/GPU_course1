@@ -1,0 +1,18 @@
+// Unfused reference kernel: 2x2/stride-2 max-pooling.
+__global__ void maxpool(float* input, float* output, int channels,
+                        int h, int out_h, int output_count) {
+    int p = blockIdx.x * blockDim.x + threadIdx.x;
+    int n = blockIdx.y;
+    if (p < output_count) {
+        int x = p % out_h;
+        int q = p / out_h;
+        int y = q % out_h;
+        int c = q / out_h;
+        int base = ((n * channels + c) * h + y * 2) * h + x * 2;
+        float best = input[base];
+        best = fmaxf(best, input[base + 1]);
+        best = fmaxf(best, input[base + h]);
+        best = fmaxf(best, input[base + h + 1]);
+        output[((n * channels + c) * out_h + y) * out_h + x] = best;
+    }
+}

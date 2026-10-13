@@ -1,0 +1,7 @@
+{
+  "correct": 9712,
+  "total": 10000,
+  "accuracy": 0.9712,
+  "parameters": 3722,
+  "training_or_gradient_descent": false
+}

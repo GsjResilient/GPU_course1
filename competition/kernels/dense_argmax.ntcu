@@ -1,0 +1,24 @@
+// Fuse the final 16x10 dense layer with argmax. One lane classifies one image.
+__global__ void dense_argmax(float* input, float* weight, float* bias,
+                             int* output, int samples) {
+    int n = blockIdx.x * blockDim.x + threadIdx.x;
+    if (n < samples) {
+        float best = 0.0f;
+        int best_index = 0;
+        for (int co = 0; co < 10; ++co) {
+            float sum = bias[co];
+            for (int i = 0; i < 16; ++i) {
+                sum = fmaf(input[n * 16 + i], weight[co * 16 + i], sum);
+            }
+            if (co == 0) {
+                best = sum;
+            } else {
+                if (sum > best) {
+                    best = sum;
+                    best_index = co;
+                }
+            }
+        }
+        output[n] = best_index;
+    }
+}

@@ -1,0 +1,4 @@
+variant,block_size,samples,total_cycles,cycles_per_image,host_seconds,reference_match
+optimized,64,1,721002,721002.000,0.607887,true
+optimized,64,16,8273338,517083.625,7.082135,true
+optimized,64,32,16404936,512654.250,13.976616,true

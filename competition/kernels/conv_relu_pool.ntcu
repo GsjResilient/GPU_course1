@@ -1,0 +1,34 @@
+// Fused valid 3x3 convolution, ReLU and 2x2/stride-2 max-pooling.
+// Tensor layout is NCHW and weights use OIHW, matching the basic assignment.
+__global__ void conv_relu_pool(float* input, float* weight, float* bias,
+                               float* output, int ci, int h, int out_h,
+                               int output_count) {
+    int p = blockIdx.x * blockDim.x + threadIdx.x;
+    int n = blockIdx.y;
+    if (p < output_count) {
+        int x = p % out_h;
+        int q = p / out_h;
+        int y = q % out_h;
+        int co = q / out_h;
+        float best = 0.0f;
+        for (int py = 0; py < 2; ++py) {
+            for (int px = 0; px < 2; ++px) {
+                float sum = bias[co];
+                for (int c = 0; c < ci; ++c) {
+                    for (int ky = 0; ky < 3; ++ky) {
+                        int iy = y * 2 + py + ky;
+                        for (int kx = 0; kx < 3; ++kx) {
+                            int ix = x * 2 + px + kx;
+                            int si = ((n * ci + c) * h + iy) * h + ix;
+                            int wi = ((co * ci + c) * 3 + ky) * 3 + kx;
+                            sum = fmaf(input[si], weight[wi], sum);
+                        }
+                    }
+                }
+                best = fmaxf(best, sum);
+            }
+        }
+        int oi = ((n * (output_count / (out_h * out_h)) + co) * out_h + y) * out_h + x;
+        output[oi] = best;
+    }
+}

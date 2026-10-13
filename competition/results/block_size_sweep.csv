@@ -1,0 +1,6 @@
+block_size,samples,total_cycles,host_seconds,reference_match
+16,1,1150415,1.715671,true
+32,1,723383,0.637154,true
+64,1,721002,0.607887,true
+128,1,730719,1.255692,true
+256,1,751250,1.235991,true
