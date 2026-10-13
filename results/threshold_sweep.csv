@@ -1,0 +1,5 @@
+weights,kernel,c1,c2,hidden,parameters,accuracy_percent,custom_cuda_ms,custom_cuda_min_ms,custom_cuda_max_ms,end_to_end_ms,nvidia_library_ms,nvidia_library_min_ms,nvidia_library_max_ms,library_performance_percent
+k3_p002034.bin,3,4,8,8,2034,96.01,6.876,6.518,7.094,8.135,8.511,5.05,9.317,123.7783595113438
+k3_p002878.bin,3,4,8,12,2878,96.54,7.073,6.833,8.216,9.488,8.199,8.168,9.888,115.91969461331824
+k3_p003722.bin,3,4,8,16,3722,97.12,6.866,5.684,9.669,8.127,8.51,8.148,9.085,123.9440722400233
+k3_p004050.bin,3,8,8,16,4050,97.38,11.347,10.799,11.381,12.63,18.018,17.987,18.092,158.79086983343615
