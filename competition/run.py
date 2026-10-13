@@ -132,7 +132,7 @@ def main() -> None:
     parser.add_argument("--weights", type=Path, default=HERE / "assets" / "lenet.bin")
     parser.add_argument("--out", type=Path, default=ROOT / "build" / "competition")
     parser.add_argument("--budget", type=int, default=100_000_000)
-    parser.add_argument("--block-size", type=int, choices=(16, 32, 64, 128, 256), default=64)
+    parser.add_argument("--block-size", type=int, choices=(16, 32, 64, 128, 256), default=32)
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -162,8 +162,7 @@ def main() -> None:
         address["input"] = device.upload(as_bytes(images))
         if args.variant in ("unfused", "optimized"):
             address["conv1"] = device.upload(bytes(args.samples * 4 * 26 * 26 * 4))
-            conv2_h = 10 if args.variant == "optimized" else 11
-            address["conv2"] = device.upload(bytes(args.samples * 8 * conv2_h * conv2_h * 4))
+            address["conv2"] = device.upload(bytes(args.samples * 8 * 11 * 11 * 4))
         address["pool1"] = device.upload(bytes(args.samples * 4 * 13 * 13 * 4))
         address["pool2"] = device.upload(bytes(args.samples * 8 * 5 * 5 * 4))
         address["hidden"] = device.upload(bytes(args.samples * 16 * 4))
@@ -183,8 +182,8 @@ def main() -> None:
               "ci": 4, "h": 13, "out_h": 5, "output_count": 200}),
             )
         else:
-            conv2_h = 10 if args.variant == "optimized" else 11
-            conv2_count = 800 if args.variant == "optimized" else 968
+            conv2_h = 11
+            conv2_count = 968
             front_launches = (
              ("conv1", "conv_relu", (blocks(2704), args.samples), block_size,
               {"input": address["input"], "weight": address["conv1.weight"],

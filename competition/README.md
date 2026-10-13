@@ -26,7 +26,7 @@ python3 toolchain/build.py
 # 功能模拟；会逐层与 NumPy FP32 参考对拍
 python3 competition/run.py --backend func --samples 1
 
-# 周期模拟；默认最终 optimized 方案与 block=64
+# 周期模拟；默认最终 optimized 方案与 block=32
 python3 competition/run.py --backend cycle --samples 1
 
 # 全部 10,000 张的固定权重准确率（只做前向，不训练）
@@ -45,7 +45,7 @@ python3 competition/evaluate_accuracy.py
 # 三种实现对比
 python3 competition/run.py --backend cycle --variant fused   --block-size 32
 python3 competition/run.py --backend cycle --variant unfused --block-size 32
-python3 competition/run.py --backend cycle --variant optimized --block-size 64
+python3 competition/run.py --backend cycle --variant optimized --block-size 32
 
 # 批量与 block size 测试
 python3 competition/run.py --backend cycle --samples 32 --block-size 64
@@ -59,9 +59,9 @@ python3 competition/run.py --backend cycle --samples 1  --block-size 128
 最终方案没有采用表面上直观的全融合实现，因为 CycleSim 实测融合卷积会减少可并行线程，周期反而增加。保留逐输出线程并行后，做了以下安全优化：
 
 1. Conv 与 ReLU 融合；
-2. 第二层卷积只计算池化实际读取的 10x10 区域，跳过被 floor pooling 丢弃的末行/末列；
+2. 完整保留基础题第二层卷积的 11x11 中间张量，确保逐层结构相同；
 3. 最后一层的 10 个类别并行计算，再单独 Argmax；
 4. 单个 Session 复用所有模块、显存和权重，避免逐层重启模拟器；
-5. 实测选择 64 threads/block。
+5. 实测选择 32 threads/block。
 
 结果和实验解释见 [REPORT.md](REPORT.md)，原始汇总位于 `results/`。

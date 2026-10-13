@@ -1,5 +1,5 @@
 variant,block_size,samples,total_cycles,cycles_per_image,host_seconds,reference_match
 fused,32,1,1025162,1025162.000,0.996897,true
 unfused,32,1,855633,855633.000,0.714423,true
-optimized,32,1,723383,723383.000,0.637154,true
-optimized,64,1,721002,721002.000,0.607887,true
+optimized,32,1,765914,765914.000,0.656563,true
+optimized,64,1,770676,770676.000,1.724239,true
