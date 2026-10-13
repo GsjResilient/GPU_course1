@@ -1,0 +1,3 @@
+network,parameters,accuracy_percent,single_image_cycles,single_image_virtual_ms,batch32_cycles,batch16_cycles,full_10000_cycles,full_10000_virtual_seconds,average_virtual_ms_per_image
+competition_cnn,3722,97.12,765914,0.765914,18180758,9157587,5681554083,5.681554083,0.568155408
+modern_classic_lenet5,44426,98.43,3563835,3.563835,103655510,49196931,32389716051,32.389716051,3.238971605

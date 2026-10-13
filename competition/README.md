@@ -31,6 +31,10 @@ python3 competition/run.py --backend cycle --samples 1
 
 # 全部 10,000 张的固定权重准确率（只做前向，不训练）
 python3 competition/evaluate_accuracy.py
+
+# 经典 LeNet-5 对照
+python3 competition/compare_lenet5.py --backend cycle --samples 32
+python3 competition/evaluate_lenet5_accuracy.py
 ```
 
 如果 MNIST 不在默认搜索位置，增加：
@@ -65,3 +69,14 @@ python3 competition/run.py --backend cycle --samples 1  --block-size 128
 5. 实测选择 32 threads/block。
 
 结果和实验解释见 [REPORT.md](REPORT.md)，原始汇总位于 `results/`。
+
+## 虚拟 GPU 总时间与 LeNet-5 对照
+
+时间统一按默认 `core_clock_ghz=1.0` 计算：`虚拟秒数 = 模拟周期 / 10^9`。完整测试集采用 batch=32，共 312 个完整 batch 和最后 1 个 batch=16。
+
+| 网络 | 参数 | 准确率 | 10,000 张周期 | 虚拟 GPU 总时间 |
+|---|---:|---:|---:|---:|
+| 最终竞赛 CNN | 3,722 | 97.12% | 5,681,554,083 | **5.681554 s** |
+| 现代经典 LeNet-5 | 44,426 | 98.43% | 32,389,716,051 | **32.389716 s** |
+
+这里的经典 LeNet-5 是适配 28x28 MNIST 的常用版本：`Conv5 1→6 → Pool → Conv5 6→16 → Pool → FC 256→120→84→10`，使用 ReLU 和 MaxPool。它不是原论文中 32x32 输入、Tanh/平均池化、部分连接 C3 的逐字复刻版。

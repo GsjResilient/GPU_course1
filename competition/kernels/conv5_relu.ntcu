@@ -1,0 +1,24 @@
+// Valid 5x5 convolution followed by ReLU for the classic LeNet-5 comparison.
+__global__ void conv5_relu(float* input, float* weight, float* bias,
+                           float* output, int ci, int h, int out_h,
+                           int output_count) {
+    int p = blockIdx.x * blockDim.x + threadIdx.x;
+    int n = blockIdx.y;
+    if (p < output_count) {
+        int x = p % out_h;
+        int q = p / out_h;
+        int y = q % out_h;
+        int co = q / out_h;
+        float sum = bias[co];
+        for (int c = 0; c < ci; ++c) {
+            for (int ky = 0; ky < 5; ++ky) {
+                for (int kx = 0; kx < 5; ++kx) {
+                    int si = ((n * ci + c) * h + y + ky) * h + x + kx;
+                    int wi = ((co * ci + c) * 5 + ky) * 5 + kx;
+                    sum = fmaf(input[si], weight[wi], sum);
+                }
+            }
+        }
+        output[((n * (output_count / (out_h * out_h)) + co) * out_h + y) * out_h + x] = fmaxf(sum, 0.0f);
+    }
+}
